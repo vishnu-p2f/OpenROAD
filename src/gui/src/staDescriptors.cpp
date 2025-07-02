@@ -916,8 +916,9 @@ void ClockDescriptor::highlight(std::any object, Painter& painter) const
     odb::dbITerm* iterm;
     odb::dbBTerm* bterm;
     odb::dbModITerm* moditerm;
+    odb::dbModBTerm* modbterm;
 
-    network->staToDb(pin, iterm, bterm, moditerm);
+    network->staToDb(pin, iterm, bterm, moditerm, modbterm);
 
     if (iterm != nullptr) {
       iterm_desc->highlight(iterm, painter);
@@ -929,8 +930,9 @@ void ClockDescriptor::highlight(std::any object, Painter& painter) const
     odb::dbITerm* iterm;
     odb::dbBTerm* bterm;
     odb::dbModITerm* moditerm;
+    odb::dbModBTerm* modbterm;
 
-    network->staToDb(pin, iterm, bterm, moditerm);
+    network->staToDb(pin, iterm, bterm, moditerm, modbterm);
 
     if (iterm != nullptr) {
       iterm_desc->highlight(iterm, painter);
@@ -1001,8 +1003,9 @@ Descriptor::Properties ClockDescriptor::getProperties(std::any object) const
     odb::dbITerm* iterm;
     odb::dbBTerm* bterm;
     odb::dbModITerm* moditerm;
+    odb::dbModBTerm* modbterm;
 
-    network->staToDb(src_pin, iterm, bterm, moditerm);
+    network->staToDb(src_pin, iterm, bterm, moditerm, modbterm);
 
     std::any source;
     if (iterm != nullptr) {
@@ -1020,8 +1023,9 @@ Descriptor::Properties ClockDescriptor::getProperties(std::any object) const
     odb::dbITerm* iterm;
     odb::dbBTerm* bterm;
     odb::dbModITerm* moditerm;
+    odb::dbModBTerm* modbterm;
 
-    network->staToDb(pin, iterm, bterm, moditerm);
+    network->staToDb(pin, iterm, bterm, moditerm, modbterm);
 
     if (iterm != nullptr) {
       source_pins.insert(gui->makeSelected(iterm));
@@ -1036,8 +1040,9 @@ Descriptor::Properties ClockDescriptor::getProperties(std::any object) const
     odb::dbITerm* iterm;
     odb::dbBTerm* bterm;
     odb::dbModITerm* moditerm;
+    odb::dbModBTerm* modbterm;
 
-    network->staToDb(pin, iterm, bterm, moditerm);
+    network->staToDb(pin, iterm, bterm, moditerm, modbterm);
 
     if (iterm != nullptr) {
       pins.insert(gui->makeSelected(iterm));

@@ -47,8 +47,8 @@ in `no_mix` clock mode it specifies a maximum number of chains per clock-edge pa
 
 ### Report DFT Config
 
-Prints the current DFT configuration to be used by `report_dft_plan` and
-`execute_dft_plan`.
+Prints the current DFT configuration to be used by `preview_dft` and
+`insert_dft`.
 
 ```tcl
 report_dft_config
@@ -63,15 +63,15 @@ placement, as it changes the area of cells.
 scan_replace
 ```
 
-### Report DFT Plan
+### Preview DFT
 
-Prints a preview of the scan chains that will be stitched by `execute_dft_plan`. Use
+Prints a preview of the scan chains that will be stitched by `insert_dft`. Use
 this command to iterate and try different DFT configurations. This command does
 not perform any modification to the design, and should be run after `scan_replace`
 and global placement.
 
 ```tcl
-report_dft_plan
+preview_dft
     [-verbose]
 ```
 
@@ -81,13 +81,13 @@ report_dft_plan
 | ---- | ---- |
 | `-verbose` | Shows more information about each one of the scan chains that will be created. |
 
-### Execute DFT Plan
+### Insert DFT
 
 Architect scan chains and connect them up in a way that minimises wirelength. As
 a result, this should be run after placement, and after `scan_replace`.
 
 ```tcl
-execute_dft_plan
+insert_dft
 ```
 
 ## Example scripts
@@ -100,8 +100,8 @@ set_dft_config -max_length 10 -clock_mixing clock_mix
 report_dft_config
 scan_replace
 # Run global placement...
-report_dft_plan -verbose
-execute_dft_plan
+preview_dft -verbose
+insert_dft
 ```
 
 ## Regression tests

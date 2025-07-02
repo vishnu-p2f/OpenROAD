@@ -13,9 +13,9 @@ set_dft_config -max_length 10
 report_instance ff1
 scan_replace
 report_instance ff1
-report_dft_plan -verbose
+preview_dft -verbose
 report_instance ff1
-execute_dft_plan
+insert_dft
 report_instance ff1
 
 set verilog_file [make_result_file one_cell_sky130.v]

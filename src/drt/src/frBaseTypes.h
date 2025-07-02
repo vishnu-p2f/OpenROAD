@@ -313,7 +313,6 @@ struct frDebugSettings
   bool paEdge{false};
   bool paCommit{false};
   std::string dumpDir;
-  std::string snapshotDir{"."};
 
   int mazeEndIter{-1};
   int drcCost{-1};
@@ -332,7 +331,7 @@ struct frDebugSettings
 template <class Archive>
 inline bool is_loading(const Archive& ar)
 {
-  return std::is_same_v<typename Archive::is_loading, boost::mpl::true_>;
+  return std::is_same<typename Archive::is_loading, boost::mpl::true_>::value;
 }
 
 using utl::format_as;

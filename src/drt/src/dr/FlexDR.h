@@ -444,7 +444,10 @@ class FlexDRWorker
 
   void setSharedVolume(const std::string& vol) { dist_dir_ = vol; }
 
-  std::vector<Point3D> getSpecialAccessAPs() const { return specialAccessAPs; }
+  const std::vector<Point3D> getSpecialAccessAPs() const
+  {
+    return specialAccessAPs;
+  }
   frCoord getHalfViaEncArea(frMIdx z, bool isLayer1, frNonDefaultRule* ndr);
   bool isSkipRouting() const { return skipRouting_; }
 
@@ -694,7 +697,6 @@ class FlexDRWorker
   void initTrackCoords_pin(drNet* net,
                            frLayerCoordTrackPatternMap& xMap,
                            frLayerCoordTrackPatternMap& yMap);
-  frLayerNum initTrackCoords_getNonPref(frLayerNum lNum);
   void initMazeIdx();
   void initMazeIdx_connFig(drConnFig* connFig);
   void initMazeIdx_ap(drAccessPattern* ap);

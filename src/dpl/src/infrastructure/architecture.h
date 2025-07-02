@@ -89,9 +89,9 @@ class Architecture
   std::vector<Group*> regions_;
 
   // Padding...
-  bool usePadding_{false};
-  dpl::Padding* padding_{nullptr};
-  DbuX site_width_{0};
+  bool usePadding_ = false;
+  dpl::Padding* padding_;
+  DbuX site_width_;
 };
 
 class Architecture::Row

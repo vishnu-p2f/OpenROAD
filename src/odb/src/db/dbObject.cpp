@@ -17,6 +17,15 @@ uint dbObject::getId() const
   return getImpl()->getOID();
 }
 
+inline uint getOid(const char*& name)
+{
+  char* end;
+  uint id = strtoul(name, &end, 10);
+  ZASSERT(name != end);
+  name = end;
+  return id;
+}
+
 dbObjectType dbObject::getObjectType() const
 {
   return getImpl()->getType();
@@ -165,6 +174,9 @@ dbObjectType dbObject::getType(const char* name, utl::Logger* logger)
   }
 
   logger->error(utl::ODB, 267, "Unable to find {} object type", name);
+
+  // should not get here
+  return (dbObjectType) 0;
 }
 
 // We have to compare the id not only of this object but all its

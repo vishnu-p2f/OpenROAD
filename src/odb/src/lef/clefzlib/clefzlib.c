@@ -49,9 +49,8 @@ lefGZFile lefGZipOpen(const char* gzipPath, const char* mode)
 {
   lefGZFile fptr;
 
-  if (!gzipPath) {
+  if (!gzipPath)
     return NULL;
-  }
 
   fptr = gzopen(gzipPath, mode);
 
@@ -60,9 +59,8 @@ lefGZFile lefGZipOpen(const char* gzipPath, const char* mode)
     /* set the read function to read from a compressed file */
     lefrSetReadFunction(lefGZip_read);
     return (lefGZFile) fptr;
-  } else {
+  } else
     return NULL;
-  }
 }
 
 int lefGZipClose(lefGZFile filePtr)

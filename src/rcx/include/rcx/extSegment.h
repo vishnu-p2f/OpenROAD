@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <dbUtil.h>
+
 #include "extprocess.h"
 #include "grids.h"
 #include "odb/db.h"
@@ -10,7 +12,6 @@
 #include "odb/dbShape.h"
 #include "odb/odb.h"
 #include "odb/util.h"
-#include "rcx/dbUtil.h"
 
 #ifndef _WIN32
 #define D2I_ROUND (name) rint(name)

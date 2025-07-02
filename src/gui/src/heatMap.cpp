@@ -352,10 +352,6 @@ void HeatMapDataSource::addToMap(const odb::Rect& region, double value)
 {
   for (const auto& map_col : getMapView(region)) {
     for (const auto& map_pt : map_col) {
-      if (map_pt == nullptr) {
-        continue;
-      }
-
       odb::Rect intersection;
       map_pt->rect.intersection(region, intersection);
 
@@ -388,10 +384,10 @@ void HeatMapDataSource::clearMap()
   populated_ = false;
 }
 
-bool HeatMapDataSource::setupMap()
+void HeatMapDataSource::setupMap()
 {
   if (getBlock() == nullptr || getBlock()->getDieArea().area() == 0) {
-    return false;
+    return;
   }
 
   populateXYGrid();
@@ -427,8 +423,6 @@ bool HeatMapDataSource::setupMap()
       map_[x][y] = std::move(map_pt);
     }
   }
-
-  return true;
 }
 
 void HeatMapDataSource::populateXYGrid()
@@ -520,11 +514,7 @@ void HeatMapDataSource::ensureMap()
   const bool build_map = map_[0][0] == nullptr;
   if (build_map) {
     debugPrint(logger_, utl::GUI, "HeatMap", 1, "{} - Setting up map", name_);
-    if (!setupMap()) {
-      debugPrint(
-          logger_, utl::GUI, "HeatMap", 1, "{} - No map available", name_);
-      return;
-    }
+    setupMap();
   }
 
   if (build_map || !isPopulated()) {

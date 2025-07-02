@@ -226,25 +226,21 @@ TEST_F(BufRemTest, SlackImproves)
 
   resizer_->initBlock();
   db_->setLogger(&logger_);
+  resizer_->journalBeginTest();
+  resizer_->logger()->setDebugLevel(utl::RSZ, "journal", 1);
 
-  {
-    IncrementalParasiticsGuard guard(resizer_);
+  auto insts = std::make_unique<sta::InstanceSeq>();
+  odb::dbInst* inst1 = block->findInst("b2");
+  sta::Instance* sta_inst1 = db_network_->dbToSta(inst1);
+  insts->emplace_back(sta_inst1);
 
-    resizer_->journalBeginTest();
-    resizer_->logger()->setDebugLevel(utl::RSZ, "journal", 1);
+  odb::dbInst* inst2 = block->findInst("b3");
+  sta::Instance* sta_inst2 = db_network_->dbToSta(inst2);
+  insts->emplace_back(sta_inst2);
 
-    auto insts = std::make_unique<sta::InstanceSeq>();
-    odb::dbInst* inst1 = block->findInst("b2");
-    sta::Instance* sta_inst1 = db_network_->dbToSta(inst1);
-    insts->emplace_back(sta_inst1);
+  resizer_->removeBuffers(*insts, /* recordJournal */ true);
 
-    odb::dbInst* inst2 = block->findInst("b3");
-    sta::Instance* sta_inst2 = db_network_->dbToSta(inst2);
-    insts->emplace_back(sta_inst2);
-
-    resizer_->removeBuffers(*insts);
-    resizer_->journalRestoreTest();
-  }
+  resizer_->journalRestoreTest();
 
   float newArrival
       = sta_->vertexArrival(outVertex_, sta::RiseFall::rise(), pathAnalysisPt_);

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // Copyright (c) 2019-2025, The OpenROAD Authors
 
-// Common header for Boost.Spirit parser configurations used in LEF/DEF parsers
 #pragma once
 
 #include <boost/algorithm/string/classification.hpp>
@@ -26,14 +25,12 @@
 
 namespace odb {
 
-// Common namespace aliases for Boost.Spirit components
 namespace qi = boost::spirit::qi;
 namespace ascii = boost::spirit::ascii;
 namespace phoenix = boost::phoenix;
 
 using namespace boost::placeholders;
 
-// Common parser components
 using ascii::blank;
 using ascii::char_;
 using boost::fusion::at_c;
@@ -42,18 +39,14 @@ using boost::spirit::ascii::space_type;
 using boost::spirit::ascii::string;
 using boost::spirit::qi::lit;
 
-// Common parser rules
 using qi::double_;
 using qi::int_;
 using qi::lexeme;
 
-// Common parser utilities
 using ascii::space;
 using phoenix::ref;
 
-// Rule for parsing strings: starts with alpha, followed by any non-blank chars
-static const qi::
-    rule<std::string::const_iterator, std::string(), ascii::space_type>
-        _string = lexeme[(alpha >> *(char_ - blank - '\n'))];
+static const qi::rule<std::string::iterator, std::string(), ascii::space_type>
+    _string = lexeme[(alpha >> *(char_ - blank - '\n'))];
 
 }  // namespace odb

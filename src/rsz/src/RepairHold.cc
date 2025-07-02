@@ -80,18 +80,19 @@ bool RepairHold::repairHold(
   int max_buffer_count = max_buffer_percent * network_->instanceCount();
   // Prevent it from being too small on trivial designs
   max_buffer_count = std::max(max_buffer_count, 100);
+  resizer_->incrementalParasiticsBegin();
+  repaired = repairHold(ends1,
+                        buffer_cell,
+                        setup_margin,
+                        hold_margin,
+                        allow_setup_violations,
+                        max_buffer_count,
+                        max_passes,
+                        verbose);
 
-  {
-    IncrementalParasiticsGuard guard(resizer_);
-    repaired = repairHold(ends1,
-                          buffer_cell,
-                          setup_margin,
-                          hold_margin,
-                          allow_setup_violations,
-                          max_buffer_count,
-                          max_passes,
-                          verbose);
-  }
+  // Leave the parasitices up to date.
+  resizer_->updateParasitics();
+  resizer_->incrementalParasiticsEnd();
 
   return repaired;
 }
@@ -115,18 +116,18 @@ void RepairHold::repairHold(const Pin* end_pin,
 
   sta_->findRequireds();
   const int max_buffer_count = max_buffer_percent * network_->instanceCount();
-
-  {
-    IncrementalParasiticsGuard guard(resizer_);
-    repairHold(ends,
-               buffer_cell,
-               setup_margin,
-               hold_margin,
-               allow_setup_violations,
-               max_buffer_count,
-               max_passes,
-               false);
-  }
+  resizer_->incrementalParasiticsBegin();
+  repairHold(ends,
+             buffer_cell,
+             setup_margin,
+             hold_margin,
+             allow_setup_violations,
+             max_buffer_count,
+             max_passes,
+             false);
+  // Leave the parasitices up to date.
+  resizer_->updateParasitics();
+  resizer_->incrementalParasiticsEnd();
 }
 
 // Find a good hold buffer using delay/area as the metric.
@@ -463,6 +464,7 @@ void RepairHold::repairEndHold(Vertex* end_vertex,
               // reduce setup slack in ways that are too expensive to
               // predict. Use the journal to back out the change if
               // the hold buffer blows through the setup margin.
+              resizer_->incrementalParasiticsEnd();
               resizer_->journalBegin();
               Slack setup_slack_before = sta_->worstSlack(max_);
               Slew slew_before = sta_->vertexSlew(path_vertex, max_);
@@ -480,11 +482,15 @@ void RepairHold::repairEndHold(Vertex* end_vertex,
                   || (!allow_setup_violations
                       && fuzzyLess(setup_slack_after, setup_slack_before)
                       && setup_slack_after < setup_margin)) {
-                resizer_->journalRestore();
-                inserted_buffer_count_ = 0;
+                resizer_->journalRestore(resize_count_,
+                                         inserted_buffer_count_,
+                                         cloned_gate_count_,
+                                         swap_pin_count_,
+                                         removed_buffer_count_);
               } else {
                 resizer_->journalEnd();
               }
+              resizer_->incrementalParasiticsBegin();
             }
           }
         }
@@ -571,8 +577,12 @@ void RepairHold::makeHoldDelay(Vertex* drvr,
   odb::dbITerm* drvr_pin_iterm;
   odb::dbBTerm* drvr_pin_bterm;
   odb::dbModITerm* drvr_pin_moditerm;
-  db_network_->staToDb(
-      drvr_pin, drvr_pin_iterm, drvr_pin_bterm, drvr_pin_moditerm);
+  odb::dbModBTerm* drvr_pin_modbterm;
+  db_network_->staToDb(drvr_pin,
+                       drvr_pin_iterm,
+                       drvr_pin_bterm,
+                       drvr_pin_moditerm,
+                       drvr_pin_modbterm);
   if (drvr_pin_iterm) {
     // disconnect the iterm from both the modnet and the dbnet
     // note we will rewire the drvr_pin to connect to the new buffer later.
@@ -582,6 +592,11 @@ void RepairHold::makeHoldDelay(Vertex* drvr,
   if (drvr_pin_moditerm) {
     drvr_pin_moditerm->disconnect();
   }
+  if (drvr_pin_modbterm) {
+    drvr_pin_modbterm->disconnect();
+  }
+
+  resizer_->parasiticsInvalid(in_net);
 
   LibertyPort *input, *output;
   buffer_cell->bufferPorts(input, output);
@@ -614,7 +629,8 @@ void RepairHold::makeHoldDelay(Vertex* drvr,
       odb::dbITerm* iterm;
       odb::dbBTerm* bterm;
       odb::dbModITerm* moditerm;
-      db_network_->staToDb(op_pin, iterm, bterm, moditerm);
+      odb::dbModBTerm* modbterm;
+      db_network_->staToDb(op_pin, iterm, bterm, moditerm, modbterm);
       // we only need to look at the iterm, the buffer is a dbInst
       if (iterm) {
         // hook up the hierarchical net
@@ -622,6 +638,8 @@ void RepairHold::makeHoldDelay(Vertex* drvr,
       }
     }
   }
+
+  resizer_->parasiticsInvalid(out_net);
 
   // hook up loads to buffer
   for (const Pin* load_pin : load_pins) {
@@ -650,7 +668,8 @@ void RepairHold::makeHoldDelay(Vertex* drvr,
       odb::dbITerm* iterm;
       odb::dbBTerm* bterm;
       odb::dbModITerm* moditerm;
-      db_network_->staToDb(load_pin, iterm, bterm, moditerm);
+      odb::dbModBTerm* modbterm;
+      db_network_->staToDb(load_pin, iterm, bterm, moditerm, modbterm);
       if (iterm && original_mod_net) {
         iterm->connect(original_mod_net);
       }

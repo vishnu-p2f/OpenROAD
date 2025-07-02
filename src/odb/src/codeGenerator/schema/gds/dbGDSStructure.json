@@ -1,5 +1,6 @@
 {
     "name":"dbGDSStructure",
+    "type":"dbObject",
     "fields":[
       {
         "name":"_name",
@@ -19,4 +20,5 @@
       "dbTable.h"
     ],
     "cpp_includes": ["odb/dbTypes.h", "dbGDSLib.h","dbHashTable.hpp"]
-}
+  }
+  

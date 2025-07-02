@@ -23,11 +23,7 @@ def _tcl_encode_sta_impl(ctx):
         inputs = ctx.files.srcs,
         arguments = [args],
         tools = [ctx.executable._tclsh, ctx.file._encode_script],
-        executable = ctx.executable._tclsh,
-        env = {
-            # FIXME why is this needed?
-            "TCL_LIBRARY": ctx.executable._tclsh.path + ".runfiles/tk_tcl/library",
-        },
+        executable = ([file for file in ctx.files._tclsh if file.basename == "tclsh"][0]),
     )
     return [DefaultInfo(files = depset([output_file]))]
 
@@ -47,7 +43,7 @@ tcl_encode_sta = rule(
             doc = "Tcl files to be wrapped.",
         ),
         "_encode_script": attr.label(
-            default = "//src/sta:etc/TclEncode.tcl",
+            default = "//:src/sta/etc/TclEncode.tcl",
             allow_single_file = True,
         ),
         "_tclsh": attr.label(

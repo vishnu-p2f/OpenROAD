@@ -40,6 +40,8 @@ class TimingBase
 
   void setTimingNetWeightMax(float max);
 
+  int repairDesignBufferCount() { return rs_->repairDesignBufferCount(); }
+
   // updateNetWeight.
   // True: successfully reweighted gnets
   // False: no slacks found

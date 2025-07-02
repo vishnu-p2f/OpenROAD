@@ -97,9 +97,8 @@ lefrData::lefrData()
   // pcr 569729
   if (stat("lefRWarning.log", &statbuf) != -1) {
     // file exist, remove it
-    if (!lefSettings->LogFileAppend) {
+    if (!lefSettings->LogFileAppend)
       remove("lefRWarning.log");
-    }
   }
 
   // initialize the value
@@ -133,7 +132,10 @@ lefrData::~lefrData()
 
 void lefrData::reset()
 {
-  delete lefData;
+  if (lefData) {
+    delete lefData;
+  }
+
   lefData = new lefrData();
 }
 

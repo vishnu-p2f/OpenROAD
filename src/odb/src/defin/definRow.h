@@ -29,7 +29,7 @@ class definRow : public definBase
   using SiteMap = std::map<const char*, dbSite*, ltstr>;
   SiteMap _sites;
   std::vector<dbLib*> _libs;
-  dbRow* _cur_row{nullptr};
+  dbRow* _cur_row;
 
  public:
   /// Row interface methods
@@ -50,6 +50,7 @@ class definRow : public definBase
 
   definRow();
   ~definRow() override;
+  void init() override;
   void setLibs(std::vector<dbLib*>& libs) { _libs = libs; }
 };
 

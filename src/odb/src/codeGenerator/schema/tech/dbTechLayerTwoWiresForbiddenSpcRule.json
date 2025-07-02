@@ -1,5 +1,6 @@
 {
     "name": "dbTechLayerTwoWiresForbiddenSpcRule",
+    "type": "dbObject",
     "fields": [
       {
         "type": "int",
@@ -39,3 +40,4 @@
       "dbTechLayer.h"
     ]
   }
+  

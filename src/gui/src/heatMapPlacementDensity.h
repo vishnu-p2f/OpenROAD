@@ -16,8 +16,6 @@ class PlacementDensityDataSource : public HeatMapDataSource,
  public:
   PlacementDensityDataSource(utl::Logger* logger);
 
-  odb::Rect getBounds() const override { return getBlock()->getCoreArea(); }
-
   void onShow() override;
   void onHide() override;
 

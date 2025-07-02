@@ -241,12 +241,6 @@ set_cts_library(const char* name)
 }
 
 void
-set_repair_clock_nets(bool value)
-{
-  getTritonCts()->getParms()->setRepairClockNets(value);
-}
- 
-void
 run_triton_cts()
 {
   getTritonCts()->runTritonCts();

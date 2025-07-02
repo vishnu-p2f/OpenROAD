@@ -242,7 +242,8 @@ dbRow* dbRow::create(dbBlock* block_,
   _dbSite* site = (_dbSite*) site_;
   _dbLib* lib = (_dbLib*) site->getOwner();
   _dbRow* row = block->_row_tbl->create();
-  row->_name = safe_strdup(name);
+  row->_name = strdup(name);
+  ZALLOCATED(row->_name);
   row->_lib = lib->getOID();
   row->_site = site->getOID();
   row->_flags._orient = orient;

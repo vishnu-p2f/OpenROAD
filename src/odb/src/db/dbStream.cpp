@@ -14,11 +14,7 @@ namespace odb {
 
 void dbOStream::pushScope(const std::string& name)
 {
-  int scope_pos = 0;
-  if (_db->getLogger()->debugCheck(utl::ODB, "io_size", 1)) {
-    scope_pos = pos();
-  }
-  _scopes.push_back({name, scope_pos});
+  _scopes.push_back({name, pos()});
 }
 
 void dbOStream::popScope()

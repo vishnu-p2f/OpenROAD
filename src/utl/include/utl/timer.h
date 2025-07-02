@@ -32,7 +32,7 @@ class DebugScopedTimer : public Timer
  public:
   DebugScopedTimer(utl::Logger* logger,
                    ToolId tool,
-                   const char* group,
+                   const std::string& group,
                    int level,
                    const std::string& msg);
   ~DebugScopedTimer() override;
@@ -41,7 +41,7 @@ class DebugScopedTimer : public Timer
   utl::Logger* logger_;
   std::string msg_;
   ToolId tool_;
-  const char* group_;
+  std::string group_;
   int level_;
 };
 

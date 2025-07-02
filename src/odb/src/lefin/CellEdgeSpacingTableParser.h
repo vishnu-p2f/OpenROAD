@@ -23,7 +23,7 @@ class CellEdgeSpacingTableParser
   void parse(const std::string&);
 
  private:
-  bool parseEntry(const std::string&);
+  bool parseEntry(std::string);
   void createEntry();
   void setSpacing(double);
   void setBool(void (dbCellEdgeSpacing::*func)(bool));

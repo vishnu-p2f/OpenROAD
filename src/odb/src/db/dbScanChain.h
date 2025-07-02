@@ -16,6 +16,8 @@ class dbIStream;
 class dbOStream;
 class _dbDatabase;
 class _dbScanPartition;
+template <class T>
+class dbTable;
 class dbScanPin;
 
 class _dbScanChain : public _dbObject

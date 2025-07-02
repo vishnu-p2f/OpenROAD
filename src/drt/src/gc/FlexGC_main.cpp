@@ -1600,13 +1600,9 @@ gcSegment* bestSuitable(gcSegment* a, gcSegment* b)
   }
   return b;
 }
-void FlexGCWorker::Impl::checkMetalShape_minArea(gcPin* pin,
-                                                 bool allow_patching)
+void FlexGCWorker::Impl::checkMetalShape_minArea(gcPin* pin)
 {
-  if (ignoreMinArea_) {
-    return;
-  }
-  if (allow_patching && !targetNet_) {
+  if (ignoreMinArea_ || !targetNet_) {
     return;
   }
   auto poly = pin->getPolygon();
@@ -1638,20 +1634,7 @@ void FlexGCWorker::Impl::checkMetalShape_minArea(gcPin* pin,
     }
   }
 
-  if (allow_patching) {
-    checkMetalShape_addPatch(pin, reqArea);
-  } else {
-    auto net = poly->getNet();
-    auto marker = std::make_unique<frMarker>();
-    marker->setBBox(bbox2);
-    marker->setLayerNum(layerNum);
-    marker->setConstraint(con);
-    marker->addSrc(net->getOwner());
-    marker->addVictim(net->getOwner(), std::make_tuple(layerNum, bbox2, false));
-    marker->addAggressor(net->getOwner(),
-                         std::make_tuple(layerNum, bbox2, false));
-    addMarker(std::move(marker));
-  }
+  checkMetalShape_addPatch(pin, reqArea);
 }
 
 void FlexGCWorker::Impl::checkMetalShape_lef58MinStep_noBetweenEol(
@@ -2378,7 +2361,9 @@ void FlexGCWorker::Impl::checkMetalShape_main(gcPin* pin, bool allow_patching)
   }
 
   // min area
-  checkMetalShape_minArea(pin, allow_patching);
+  if (allow_patching) {
+    checkMetalShape_minArea(pin);
+  }
 
   // min step
   checkMetalShape_minStep(pin);
@@ -3707,9 +3692,6 @@ void FlexGCWorker::Impl::patchMetalShape_cornerSpacing()
         continue;
       }
       if (targetNet_ && net->getFrNet() != targetNet_->getFrNet()) {
-        continue;
-      }
-      if (targetDRNet_ && net != targetDRNet_) {
         continue;
       }
       if (connFig->typeId() == drcVia) {

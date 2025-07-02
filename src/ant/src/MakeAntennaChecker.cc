@@ -4,6 +4,7 @@
 #include "ant/MakeAntennaChecker.hh"
 
 #include "ant/AntennaChecker.hh"
+#include "grt/GlobalRouter.h"
 #include "utl/decode.h"
 
 extern "C" {
@@ -27,12 +28,13 @@ void deleteAntennaChecker(ant::AntennaChecker* antenna_checker)
 
 void initAntennaChecker(ant::AntennaChecker* antenna_checker,
                         odb::dbDatabase* db,
+                        ant::GlobalRouteSource* global_route_source,
                         utl::Logger* logger,
                         Tcl_Interp* tcl_interp)
 {
   Ant_Init(tcl_interp);
   utl::evalTclInit(tcl_interp, ant::ant_tcl_inits);
-  antenna_checker->init(db, logger);
+  antenna_checker->init(db, global_route_source, logger);
 }
 
 }  // namespace ant

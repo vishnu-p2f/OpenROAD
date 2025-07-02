@@ -12,6 +12,8 @@
 
 namespace odb {
 
+template <class T>
+class dbTable;
 class dbIStream;
 class dbOStream;
 class _dbLib;

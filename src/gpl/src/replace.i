@@ -183,7 +183,7 @@ set_routability_driven_mode(bool routability_driven)
 }
 
 void
-set_routability_use_grt(bool use_grt)
+  set_routability_use_grt(bool use_grt)
 {
   Replace* replace = getReplace();
   replace->setRoutabilityUseGrt(use_grt);
@@ -270,13 +270,6 @@ set_disable_revert_if_diverge(bool disable_revert_if_diverge)
   replace->setDisableRevertIfDiverge(disable_revert_if_diverge);
 }
 
-void
-set_enable_routing_congestion(bool enable_routing_congestion)
-{
-  Replace* replace = getReplace();
-  replace->setEnableRoutingCongestion(enable_routing_congestion);
-}
-
 float
 get_global_placement_uniform_density_cmd() 
 {
@@ -308,8 +301,7 @@ set_debug_cmd(int pause_iterations,
               bool initial,
               const char* inst_name,
               int start_iter,
-              bool generate_images,
-              const char* images_path)
+              bool update_db)
 {
   Replace* replace = getReplace();
   odb::dbInst* inst = nullptr;
@@ -317,14 +309,8 @@ set_debug_cmd(int pause_iterations,
     auto block = ord::OpenRoad::openRoad()->getDb()->getChip()->getBlock();
     inst = block->findInst(inst_name);
   }
-
-  std::string resolved_path = (images_path && *images_path)
-                                  ? images_path
-                                  : "REPORTS_DIR";
-
   replace->setDebug(pause_iterations, update_iterations, draw_bins,
-                    initial, inst, start_iter, generate_images,
-                    resolved_path);
+                    initial, inst, start_iter, update_db);
 }
 
 %} // inline

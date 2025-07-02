@@ -9,7 +9,7 @@ target_link_libraries(RmpGTests
         rmp_abc_library
         dbSta_lib
         utl_lib
-        ${ABC_LIBRARY}
+        libabc
         ${TCL_LIBRARY}
 )
 

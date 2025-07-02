@@ -15,7 +15,6 @@
 ///  dbTablePage
 ///
 
-#include <boost/container/flat_map.hpp>
 #include <map>
 #include <set>
 #include <string>
@@ -26,19 +25,15 @@
 #include "odb/dbId.h"
 #include "odb/dbObject.h"
 #include "odb/odb.h"
-
 namespace utl {
 class Logger;
 }
-
 namespace odb {
 
-template <class T, uint page_size = 128>
-class dbTable;
 class _dbDatabase;
 class _dbProperty;
 class dbObjectTable;
-template <typename T, uint page_size = 128>
+template <typename T>
 class dbHashTable;
 template <typename T>
 class dbIntHashTable;
@@ -47,13 +42,17 @@ class dbMatrix;
 template <class T, const uint P, const uint S>
 class dbPagedVector;
 
-constexpr uint DB_ALLOC_BIT = 0x80000000;
-constexpr uint DB_OFFSET_MASK = ~DB_ALLOC_BIT;
+#define DB_ALLOC_BIT 0x80000000
+#define DB_OFFSET_MASK (~DB_ALLOC_BIT)
 
 using GetObjTbl_t = dbObjectTable* (dbObject::*) (dbObjectType);
 
 struct MemInfo
 {
+  std::map<const char*, MemInfo> children_;
+  int cnt{0};
+  uint64_t size{0};
+
   void add(const char* str)
   {
     if (str) {
@@ -78,14 +77,14 @@ struct MemInfo
     size += vec.size() * sizeof(T);
   }
 
-  template <class T, uint page_size>
-  void add(const dbHashTable<T, page_size>& table)
+  template <typename T>
+  void add(const dbHashTable<T>& table)
   {
     cnt += 1;
     size += table._hash_tbl.size() * sizeof(dbId<T>);
   }
 
-  template <class T>
+  template <typename T>
   void add(const dbIntHashTable<T>& table)
   {
     cnt += 1;
@@ -125,13 +124,6 @@ struct MemInfo
     size += map.size() * (sizeof(Key) + sizeof(T));
   }
 
-  template <typename Key, typename T>
-  void add(const boost::container::flat_map<Key, T>& map)
-  {
-    cnt += 1;
-    size += map.size() * (sizeof(Key) + sizeof(T));
-  }
-
   template <typename T>
   void add(const std::unordered_map<std::string, T>& map)
   {
@@ -150,10 +142,6 @@ struct MemInfo
     cnt += 1;
     size += set.size() * sizeof(T);
   }
-
-  std::map<const char*, MemInfo> children_;
-  int cnt{0};
-  uint64_t size{0};
 };
 
 ///////////////////////////////////////////////////////////////
@@ -161,6 +149,9 @@ struct MemInfo
 ///////////////////////////////////////////////////////////////
 class _dbObject : public dbObject
 {
+ private:
+  uint _oid;
+
  public:
   _dbDatabase* getDatabase() const;
   dbObjectTable* getTable() const;
@@ -170,10 +161,7 @@ class _dbObject : public dbObject
   uint getOID() const;
   utl::Logger* getLogger() const;
 
- private:
-  uint _oid;
-
-  template <class T, uint page_size>
+  template <class T>
   friend class dbTable;
   template <class T>
   friend class dbArrayTable;
@@ -185,12 +173,23 @@ class _dbObject : public dbObject
 class dbObjectTable
 {
  public:
+  // NON-PERSISTANT DATA
+  _dbDatabase* _db;
+  dbObject* _owner;
+  dbObjectType _type;
+  uint _obj_size;
+  dbObjectTable* (dbObject::*_getObjectTable)(dbObjectType type);
+
+  // PERSISTANT DATA
+  dbAttrTable<dbId<_dbProperty>> _prop_list;
+
+  virtual ~dbObjectTable() = default;
+  dbObjectTable();
   dbObjectTable(_dbDatabase* db,
                 dbObject* owner,
                 dbObjectTable* (dbObject::*m)(dbObjectType),
                 dbObjectType type,
                 uint size);
-  virtual ~dbObjectTable() = default;
 
   dbId<_dbProperty> getPropList(uint oid) { return _prop_list.getAttr(oid); }
 
@@ -206,16 +205,6 @@ class dbObjectTable
   {
     return (_owner->*_getObjectTable)(type);
   }
-
-  // NON-PERSISTANT DATA
-  _dbDatabase* _db;
-  dbObject* _owner;
-  dbObjectType _type;
-  uint _obj_size;
-  dbObjectTable* (dbObject::*_getObjectTable)(dbObjectType type);
-
-  // PERSISTANT DATA
-  dbAttrTable<dbId<_dbProperty>> _prop_list;
 };
 
 ///////////////////////////////////////////////////////////////
@@ -235,26 +224,37 @@ class _dbFreeObject : public _dbObject
 class dbObjectPage
 {
  public:
-  bool valid_page() const { return _alloccnt != 0; }
-
   // NON-PERSISTANT DATA
   dbObjectTable* _table;
   uint _page_addr;
   uint _alloccnt;
+
+  bool valid_page() const { return _alloccnt != 0; }
 };
 
 ///////////////////////////////////////////////////////////////
 /// dbObjectTable implementation
 ///////////////////////////////////////////////////////////////
+inline dbObjectTable::dbObjectTable()
+{
+  _db = nullptr;
+  _owner = nullptr;
+}
+
 inline dbObjectTable::dbObjectTable(_dbDatabase* db,
                                     dbObject* owner,
                                     dbObjectTable* (dbObject::*m)(dbObjectType),
                                     dbObjectType type,
                                     uint size)
-    : _db(db), _owner(owner), _type(type), _obj_size(size), _getObjectTable(m)
 {
+  _db = db;
+  _owner = owner;
+  _getObjectTable = m;
+  _type = type;
+
   // Objects must be greater than 16-bytes
   assert(size >= sizeof(_dbFreeObject));
+  _obj_size = size;
 }
 
 ///////////////////////////////////////////////////////////////

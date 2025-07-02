@@ -27,15 +27,6 @@ bool compare_by_id(const dbObject* lhs, const dbObject* rhs);
 namespace std {
 
 template <>
-struct less<odb::dbObject*>
-{
-  bool operator()(const odb::dbObject* lhs, const odb::dbObject* rhs) const
-  {
-    return odb::compare_by_id(lhs, rhs);
-  }
-};
-
-template <>
 struct less<odb::dbBoolProperty*>
 {
   bool operator()(const odb::dbBoolProperty* lhs,

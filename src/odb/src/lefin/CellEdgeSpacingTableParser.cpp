@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // Copyright (c) 2025-2025, The OpenROAD Authors
 
-// Parser for LEF58 cell edge spacing table rules
 #include "CellEdgeSpacingTableParser.h"
 
 #include <functional>
@@ -10,21 +9,23 @@
 #include <vector>
 
 #include "boostParser.h"
-#include "parserUtils.h"
 
 namespace odb {
-
-// Parse the input string containing cell edge spacing rules
 void CellEdgeSpacingTableParser::parse(const std::string& s)
 {
-  processRules(s, [this](const std::string& rule) {
-    if (!parseEntry(rule)) {
-      lefin_->warning(
-          299,
-          "parse mismatch in property LEF58_CELLEDGESPACINGTABLE: \"{}\"",
-          rule);
+  std::vector<std::string> entries;
+  boost::split(entries, s, boost::is_any_of(";"));
+  for (auto& entry : entries) {
+    boost::algorithm::trim(entry);
+    if (entry.empty()) {
+      continue;
     }
-  });
+    entry += " ; ";
+    if (!parseEntry(entry)) {
+      lefin_->warning(299,
+                      "parse mismatch in property LEF58_CELLEDGESPACINGTABLE");
+    }
+  }
 }
 
 void CellEdgeSpacingTableParser::createEntry()
@@ -49,12 +50,9 @@ void CellEdgeSpacingTableParser::setString(
   (curr_entry_->*func)(val);
 }
 
-// Parse a single cell edge spacing rule entry
-// Format: EDGETYPE <type1> <type2> [EXCEPTABUTTED] [EXCEPTNONFILLERINBETWEEN]
-// [OPTIONAL] [SOFT] [EXACT] <spacing> ;
-bool CellEdgeSpacingTableParser::parseEntry(const std::string& s)
+bool CellEdgeSpacingTableParser::parseEntry(std::string s)
 {
-  qi::rule<std::string::const_iterator, space_type> ENTRY
+  qi::rule<std::string::iterator, space_type> ENTRY
       = lit("EDGETYPE")[boost::bind(&CellEdgeSpacingTableParser::createEntry,
                                     this)]
         >> _string[boost::bind(&CellEdgeSpacingTableParser::setString,
@@ -84,7 +82,7 @@ bool CellEdgeSpacingTableParser::parseEntry(const std::string& s)
                                      &dbCellEdgeSpacing::setExact)]
         >> double_[boost::bind(
             &CellEdgeSpacingTableParser::setSpacing, this, _1)];
-  qi::rule<std::string::const_iterator, space_type> LEF58_CELLEDGESPACINGTABLE
+  qi::rule<std::string::iterator, space_type> LEF58_CELLEDGESPACINGTABLE
       = (lit("CELLEDGESPACINGTABLE") >> -lit("NODEFAULT") >> +ENTRY
          >> lit(";"));
 

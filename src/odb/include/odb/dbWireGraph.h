@@ -34,7 +34,7 @@ class dbWireEncoder;
 //                    |
 //                    +----->o
 //
-//   The graph may contains a forest of trees.
+//   The graph may contains a fortest of trees.
 //
 //   This graph may be edited and encoded back to the wire.
 //
@@ -48,14 +48,14 @@ class dbWireGraph
   class EndStyle
   {
    public:
+    // End-Types:
+    //     EXTENDED - segment extended 1/2 path-width
+    //     VARIABLE - segment extended variable amount
     enum Type
     {
-      EXTENDED,  // segment extended 1/2 path-width
-      VARIABLE   // segment extended variable amount
+      EXTENDED,
+      VARIABLE
     };
-
-    Type getType() const { return _type; }
-    int getExt() const { return _ext; }
 
     void setExtended()
     {
@@ -82,6 +82,8 @@ class dbWireGraph
    private:
     Type _type{EXTENDED};
     int _ext{0};
+
+    friend class dbWireGraph;
   };
 
   class Node;
@@ -99,6 +101,11 @@ class dbWireGraph
       VWIRE
     };
 
+    Edge(Type type, dbWireType::Value wire_type, dbTechLayerRule* rule)
+        : _type(type), _wire_type(wire_type), _non_default_rule(rule)
+    {
+    }
+
     virtual ~Edge() = default;
 
     Type type() const { return _type; }
@@ -106,12 +113,6 @@ class dbWireGraph
     Node* target() const { return _tgt; }
     dbWireType::Value wireType() const { return _wire_type; }
     dbTechLayerRule* nonDefaultRule() const { return _non_default_rule; }
-
-   protected:
-    Edge(Type type, dbWireType::Value wire_type, dbTechLayerRule* rule)
-        : _type(type), _wire_type(wire_type), _non_default_rule(rule)
-    {
-    }
 
    private:
     static DListEntry<Edge>* edgeEntry(Edge* edge)

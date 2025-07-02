@@ -405,33 +405,21 @@ void io::Parser::initConstraintLayerIdx()
     // diff-net
     for (auto& con : layer->getLef58CutSpacingConstraints(false)) {
       if (con->hasSecondLayer()) {
-        frLayer* layer
-            = getDesign()->getTech()->getLayer(con->getSecondLayerName());
-        if (layer) {
-          frLayerNum secondLayerNum = layer->getLayerNum();
-          con->setSecondLayerNum(secondLayerNum);
-        } else {
-          logger_->warn(DRT,
-                        244,
-                        "Second layer {} does not exist.",
-                        con->getSecondLayerName());
-        }
+        frLayerNum secondLayerNum = getDesign()
+                                        ->getTech()
+                                        ->getLayer(con->getSecondLayerName())
+                                        ->getLayerNum();
+        con->setSecondLayerNum(secondLayerNum);
       }
     }
     // same-net
     for (auto& con : layer->getLef58CutSpacingConstraints(true)) {
       if (con->hasSecondLayer()) {
-        frLayer* layer
-            = getDesign()->getTech()->getLayer(con->getSecondLayerName());
-        if (layer) {
-          frLayerNum secondLayerNum = layer->getLayerNum();
-          con->setSecondLayerNum(secondLayerNum);
-        } else {
-          logger_->warn(DRT,
-                        251,
-                        "Second layer {} does not exist.",
-                        con->getSecondLayerName());
-        }
+        frLayerNum secondLayerNum = getDesign()
+                                        ->getTech()
+                                        ->getLayer(con->getSecondLayerName())
+                                        ->getLayerNum();
+        con->setSecondLayerNum(secondLayerNum);
       }
     }
   }

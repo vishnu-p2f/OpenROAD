@@ -3,17 +3,16 @@
 
 #pragma once
 
-#include <memory>
 #include <utility>
+#include <memory>
 #include <vector>
 
 #include "frBaseTypes.h"
 #include "odb/geom.h"
 
-namespace drt {
-
 using odb::Orientation2D;
 using odb::Point;
+namespace drt {
 
 struct KDTreeNode
 {

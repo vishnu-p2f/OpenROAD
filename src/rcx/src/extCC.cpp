@@ -4,8 +4,8 @@
 #include <algorithm>
 #include <vector>
 
+#include "grids.h"
 #include "gseq.h"
-#include "rcx/grids.h"
 
 namespace rcx {
 
@@ -897,7 +897,9 @@ int GridTable::couplingCaps(int hiXY,
       _bandWire = new Ath__array1D<Wire*>(4096);
     }
   } else {
-    delete (_bandWire);
+    if (_bandWire) {
+      delete (_bandWire);
+    }
     _bandWire = nullptr;
   }
   int minExtracted = hiXY;

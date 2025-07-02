@@ -75,7 +75,7 @@ void defiError(int check, int msgNum, const char* mess, defrData* defData)
     defData = defContext.data;
   }
 
-  defData->defiError(check, msgNum, mess);
+  return defData->defiError(check, msgNum, mess);
 }
 
 const char* upperCase(const char* str, defrData* defData)

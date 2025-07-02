@@ -52,7 +52,8 @@ _dbTechViaRule::_dbTechViaRule(_dbDatabase*, const _dbTechViaRule& v)
       _vias(v._vias)
 {
   if (v._name) {
-    _name = safe_strdup(v._name);
+    _name = strdup(v._name);
+    ZALLOCATED(_name);
   }
 }
 
@@ -153,7 +154,8 @@ dbTechViaRule* dbTechViaRule::create(dbTech* tech_, const char* name)
 
   _dbTech* tech = (_dbTech*) tech_;
   _dbTechViaRule* rule = tech->_via_rule_tbl->create();
-  rule->_name = safe_strdup(name);
+  rule->_name = strdup(name);
+  ZALLOCATED(rule->_name);
   return (dbTechViaRule*) rule;
 }
 

@@ -185,7 +185,8 @@ void dbModNet::rename(const char* new_name)
   _dbModule* parent = block->_module_tbl->getPtr(obj->_parent);
   parent->_modnet_hash.erase(obj->_name);
   free((void*) (obj->_name));
-  obj->_name = safe_strdup(new_name);
+  obj->_name = strdup(new_name);
+  ZALLOCATED(obj->_name);
   parent->_modnet_hash[new_name] = obj->getOID();
 }
 
@@ -294,11 +295,6 @@ dbSet<dbITerm> dbModNet::getITerms()
   _dbModNet* _mod_net = (_dbModNet*) this;
   _dbBlock* _block = (_dbBlock*) _mod_net->getOwner();
   return dbSet<dbITerm>(_mod_net, _block->_module_modnet_iterm_itr);
-}
-
-unsigned dbModNet::connectionCount()
-{
-  return (getITerms().size() + getBTerms().size() + getModITerms().size());
 }
 // User Code End dbModNetPublicMethods
 }  // namespace odb

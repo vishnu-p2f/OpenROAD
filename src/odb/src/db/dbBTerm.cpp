@@ -69,7 +69,8 @@ _dbBTerm::_dbBTerm(_dbDatabase*, const _dbBTerm& b)
       _constraint_region(b._constraint_region)
 {
   if (b._name) {
-    _name = safe_strdup(b._name);
+    _name = strdup(b._name);
+    ZALLOCATED(_name);
   }
 }
 
@@ -253,7 +254,8 @@ bool dbBTerm::rename(const char* name)
 
   block->_bterm_hash.remove(bterm);
   free((void*) bterm->_name);
-  bterm->_name = safe_strdup(name);
+  bterm->_name = strdup(name);
+  ZALLOCATED(bterm->_name);
   block->_bterm_hash.insert(bterm);
 
   return true;
@@ -623,7 +625,8 @@ dbBTerm* dbBTerm::create(dbNet* net_, const char* name)
   }
 
   _dbBTerm* bterm = block->_bterm_tbl->create();
-  bterm->_name = safe_strdup(name);
+  bterm->_name = strdup(name);
+  ZALLOCATED(bterm->_name);
   block->_bterm_hash.insert(bterm);
 
   // If there is a parentInst then we need to update the dbMaster's

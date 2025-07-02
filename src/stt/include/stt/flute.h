@@ -4,7 +4,6 @@
 #include <vector>
 
 #include "SteinerTreeBuilder.h"
-#include "boost/multi_array.hpp"
 
 #pragma once
 
@@ -33,7 +32,7 @@ class Flute
   struct csoln;
 
  private:
-  using LUT_TYPE = boost::multi_array<std::shared_ptr<struct csoln[]>, 2>*;
+  using LUT_TYPE = struct csoln***;
   using NUMSOLN_TYPE = int**;
 
  public:
@@ -46,10 +45,10 @@ class Flute
   Tree flute(const std::vector<int>& x, const std::vector<int>& y, int acc);
   int wirelength(Tree t);
   void plottree(Tree t);
-  Tree flutes(const std::vector<int>& xs,
-              const std::vector<int>& ys,
-              const std::vector<int>& s,
-              int acc)
+  inline Tree flutes(const std::vector<int>& xs,
+                     const std::vector<int>& ys,
+                     const std::vector<int>& s,
+                     int acc)
   {
     int d = xs.size();
     if (FLUTE_REMOVE_DUPLICATE_PIN == 1) {
@@ -106,11 +105,11 @@ class Flute
                   std::vector<int> s,
                   int acc);
 
-  int flutes_wl_LMD(int d,
-                    const std::vector<int>& xs,
-                    const std::vector<int>& ys,
-                    const std::vector<int>& s,
-                    int acc)
+  inline int flutes_wl_LMD(int d,
+                           const std::vector<int>& xs,
+                           const std::vector<int>& ys,
+                           const std::vector<int>& s,
+                           int acc)
   {
     if (d <= FLUTE_D) {
       return flutes_wl_LD(d, xs, ys, s);
@@ -118,20 +117,20 @@ class Flute
     return flutes_wl_MD(d, xs, ys, s, acc);
   }
 
-  int flutes_wl_ALLD(int d,
-                     const std::vector<int>& xs,
-                     const std::vector<int>& ys,
-                     const std::vector<int>& s,
-                     int acc)
+  inline int flutes_wl_ALLD(int d,
+                            const std::vector<int>& xs,
+                            const std::vector<int>& ys,
+                            const std::vector<int>& s,
+                            int acc)
   {
     return flutes_wl_LMD(d, xs, ys, s, acc);
   }
 
-  int flutes_wl(int d,
-                const std::vector<int>& xs,
-                const std::vector<int>& ys,
-                const std::vector<int>& s,
-                int acc)
+  inline int flutes_wl(int d,
+                       const std::vector<int>& xs,
+                       const std::vector<int>& ys,
+                       const std::vector<int>& s,
+                       int acc)
   {
     if (FLUTE_REMOVE_DUPLICATE_PIN == 1) {
       return flutes_wl_RDP(d, xs, ys, s, acc);
@@ -139,11 +138,11 @@ class Flute
     return flutes_wl_ALLD(d, xs, ys, s, acc);
   }
 
-  Tree flutes_ALLD(int d,
-                   const std::vector<int>& xs,
-                   const std::vector<int>& ys,
-                   const std::vector<int>& s,
-                   int acc)
+  inline Tree flutes_ALLD(int d,
+                          const std::vector<int>& xs,
+                          const std::vector<int>& ys,
+                          const std::vector<int>& s,
+                          int acc)
   {
     if (d <= FLUTE_D) {
       return flutes_LD(d, xs, ys, s);
@@ -151,11 +150,11 @@ class Flute
     return flutes_MD(d, xs, ys, s, acc);
   }
 
-  Tree flutes_LMD(int d,
-                  const std::vector<int>& xs,
-                  const std::vector<int>& ys,
-                  const std::vector<int>& s,
-                  int acc)
+  inline Tree flutes_LMD(int d,
+                         const std::vector<int>& xs,
+                         const std::vector<int>& ys,
+                         const std::vector<int>& s,
+                         int acc)
   {
     if (d <= FLUTE_D) {
       return flutes_LD(d, xs, ys, s);

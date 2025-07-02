@@ -17,9 +17,15 @@
 namespace odb {
 
 using uint = unsigned int;
+using uchar = unsigned char;
 
 #ifndef SWIG
 using utl::format_as;
 #endif
+
+class dbITerm;
+class dbModBTerm;
+using ITMap = std::map<dbITerm*, dbITerm*>;
+using modBTMap = std::map<dbModBTerm*, dbModBTerm*>;
 
 }  // namespace odb

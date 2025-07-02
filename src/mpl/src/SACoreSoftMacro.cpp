@@ -42,8 +42,7 @@ SACoreSoftMacro::SACoreSoftMacro(PhysicalHierarchy* tree,
                                  int num_perturb_per_step,
                                  unsigned seed,
                                  MplObserver* graphics,
-                                 utl::Logger* logger,
-                                 odb::dbBlock* block)
+                                 utl::Logger* logger)
     : SimulatedAnnealingCore<SoftMacro>(tree,
                                         outline,
                                         macros,
@@ -57,8 +56,7 @@ SACoreSoftMacro::SACoreSoftMacro(PhysicalHierarchy* tree,
                                         num_perturb_per_step,
                                         seed,
                                         graphics,
-                                        logger,
-                                        block),
+                                        logger),
       root_(tree->root.get())
 {
   boundary_weight_ = boundary_weight;

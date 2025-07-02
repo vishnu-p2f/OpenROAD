@@ -33,3 +33,4 @@ unset_dont_use sky130_fd_sc_hd__dly*
 repair_timing -hold
 
 report_checks -path_delay min
+

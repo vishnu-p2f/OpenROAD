@@ -10,7 +10,6 @@
 #include "lefLayerPropParser.h"
 #include "odb/db.h"
 #include "odb/lefin.h"
-#include "parserUtils.h"
 
 using namespace odb;
 
@@ -19,10 +18,10 @@ void WidthTableParser::addWidth(double width)
   rule_->addWidth(lefin_->dbdist(width));
 }
 
-bool WidthTableParser::parseSubRule(const std::string& s)
+bool WidthTableParser::parseSubRule(std::string s)
 {
   rule_ = dbTechLayerWidthTableRule::create(layer_);
-  qi::rule<std::string::const_iterator, space_type> LEF58_WIDTHTABLE
+  qi::rule<std::string::iterator, space_type> LEF58_WIDTHTABLE
       = (lit("WIDTHTABLE")
          >> +double_[boost::bind(&WidthTableParser::addWidth, this, _1)]
          >> -lit("WRONGDIRECTION")[boost::bind(
@@ -44,13 +43,20 @@ bool WidthTableParser::parseSubRule(const std::string& s)
 
 void WidthTableParser::parse(const std::string& s)
 {
-  processRules(s, [this](const std::string& rule) {
+  std::vector<std::string> rules;
+  boost::split(rules, s, boost::is_any_of(";"));
+  for (auto& rule : rules) {
+    boost::algorithm::trim(rule);
+    if (rule.empty()) {
+      continue;
+    }
+    rule += " ; ";
     if (!parseSubRule(rule)) {
       lefin_->warning(279,
-                      "parse mismatch in layer property "
-                      "LEF58_WIDTHTABLE for layer {} :\"{}\"",
+                      "parse mismatch in layer property LEF58_WIDTHTABLE for "
+                      "layer {} :\"{}\"",
                       layer_->getName(),
                       rule);
     }
-  });
+  }
 }

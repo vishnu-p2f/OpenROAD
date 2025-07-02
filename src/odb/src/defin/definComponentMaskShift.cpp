@@ -8,6 +8,17 @@
 
 namespace odb {
 
+definComponentMaskShift::definComponentMaskShift()
+{
+  init();
+}
+
+void definComponentMaskShift::init()
+{
+  definBase::init();
+  _layers.clear();
+}
+
 void definComponentMaskShift::addLayer(const char* layer)
 {
   odb::dbTechLayer* db_layer = _tech->findLayer(layer);

@@ -34,8 +34,7 @@ class SACoreHardMacro : public SimulatedAnnealingCore<HardMacro>
                   int num_perturb_per_step,
                   unsigned seed,
                   MplObserver* graphics,
-                  utl::Logger* logger,
-                  odb::dbBlock* block);
+                  utl::Logger* logger);
 
   void run() override;
 

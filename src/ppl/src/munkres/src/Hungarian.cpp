@@ -123,7 +123,7 @@ void HungarianAlgorithm::assignmentoptimal(int* assignment,
     /* Steps 1 and 2a */
     for (int row = 0; row < n_of_rows; row++) {
       for (int col = 0; col < n_of_columns; col++) {
-        if (dist_matrix[row + n_of_rows * col] == 0) {
+        if (fabs(dist_matrix[row + n_of_rows * col]) < DBL_EPSILON) {
           if (!covered_columns[col]) {
             star_matrix[row + n_of_rows * col] = true;
             covered_columns[col] = true;
@@ -158,7 +158,7 @@ void HungarianAlgorithm::assignmentoptimal(int* assignment,
     /* Steps 1 and 2a */
     for (int col = 0; col < n_of_columns; col++) {
       for (int row = 0; row < n_of_rows; row++) {
-        if (dist_matrix[row + n_of_rows * col] == 0) {
+        if (fabs(dist_matrix[row + n_of_rows * col]) < DBL_EPSILON) {
           if (!covered_rows[row]) {
             star_matrix[row + n_of_rows * col] = true;
             covered_columns[col] = true;
@@ -325,7 +325,7 @@ void HungarianAlgorithm::step3(int* assignment,
       if (!covered_columns[col]) {
         for (int row = 0; row < n_of_rows; row++) {
           if ((!covered_rows[row])
-              && (dist_matrix[row + n_of_rows * col] == 0)) {
+              && (fabs(dist_matrix[row + n_of_rows * col]) < DBL_EPSILON)) {
             /* prime zero */
             prime_matrix[row + n_of_rows * col] = true;
 

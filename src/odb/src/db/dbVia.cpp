@@ -10,7 +10,6 @@
 #include "dbBox.h"
 #include "dbBoxItr.h"
 #include "dbChip.h"
-#include "dbCommon.h"
 #include "dbDatabase.h"
 #include "dbTable.h"
 #include "dbTable.hpp"
@@ -114,11 +113,13 @@ _dbVia::_dbVia(_dbDatabase*, const _dbVia& v)
       _via_params(v._via_params)
 {
   if (v._name) {
-    _name = safe_strdup(v._name);
+    _name = strdup(v._name);
+    ZALLOCATED(_name);
   }
 
   if (v._pattern) {
-    _pattern = safe_strdup(v._pattern);
+    _pattern = strdup(v._pattern);
+    ZALLOCATED(_pattern);
   }
 }
 
@@ -221,7 +222,8 @@ void dbVia::setPattern(const char* name)
     return;
   }
 
-  via->_pattern = safe_strdup(name);
+  via->_pattern = strdup(name);
+  ZALLOCATED(via->_pattern);
 }
 
 dbBlock* dbVia::getBlock()
@@ -396,7 +398,8 @@ dbVia* dbVia::create(dbBlock* block_, const char* name_)
 
   _dbBlock* block = (_dbBlock*) block_;
   _dbVia* via = block->_via_tbl->create();
-  via->_name = safe_strdup(name_);
+  via->_name = strdup(name_);
+  ZALLOCATED(via->_name);
   return (dbVia*) via;
 }
 
@@ -463,10 +466,12 @@ static dbVia* copyVia(dbBlock* block_, dbVia* via_, bool copyRotatedVia)
   _dbVia* cvia = block->_via_tbl->create();
 
   cvia->_flags = via->_flags;
-  cvia->_name = safe_strdup(via->_name);
+  cvia->_name = strdup(via->_name);
+  ZALLOCATED(cvia->_name);
 
   if (via->_pattern) {
-    cvia->_pattern = safe_strdup(via->_pattern);
+    cvia->_pattern = strdup(via->_pattern);
+    ZALLOCATED(cvia->_pattern);
   }
 
   cvia->_top = via->_top;

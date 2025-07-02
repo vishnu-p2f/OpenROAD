@@ -70,9 +70,9 @@ utl::Logger* getLogger()
 %inline
 %{
 
-void report_dft_plan(bool verbose)
+void preview_dft(bool verbose)
 {
-  getDft()->reportDftPlan(verbose);
+  getDft()->previewDft(verbose);
 }
 
 void scan_replace()
@@ -80,9 +80,9 @@ void scan_replace()
   getDft()->scanReplace();
 }
 
-void execute_dft_plan()
+void insert_dft()
 {
-  getDft()->executeDftPlan();
+  getDft()->insertDft();
 }
 
 void set_dft_config_max_length(int max_length)

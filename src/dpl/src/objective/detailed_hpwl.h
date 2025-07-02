@@ -25,7 +25,7 @@ class DetailedHPWL : public DetailedObjective
   void init();
   double curr() override;
   double delta(const Journal& journal) override;
-  void accept() override;
+
   // Other.
   void init(DetailedMgr* mgrPtr, DetailedOrient* orientPtr);
 
@@ -37,8 +37,8 @@ class DetailedHPWL : public DetailedObjective
 
   // Other.
   int skipNetsLargerThanThis_ = 100;
-  std::vector<uint64_t> edge_hpwl_;
-  std::vector<int> affected_edges_;
+  int traversal_ = 0;
+  std::vector<int> edgeMask_;
 };
 
 }  // namespace dpl

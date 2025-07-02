@@ -82,10 +82,9 @@ struct tmg_rc
 
 struct tmg_rcpt
 {
-  tmg_rcpt(int x, int y, dbTechLayer* layer) : _x(x), _y(y), _layer(layer) {}
-  const int _x;  // nominal point
-  const int _y;
-  dbTechLayer* const _layer;
+  int _x{0};  // nominal point
+  int _y{0};
+  dbTechLayer* _layer{nullptr};
   int _tindex{-1};  // index to _termV
   tmg_rcpt* _next_for_term{nullptr};
   tmg_rcpt* _t_alt{nullptr};
@@ -100,20 +99,17 @@ struct tmg_rcpt
 
 struct tmg_rcterm
 {
-  tmg_rcterm(dbITerm* iterm) : _iterm(iterm), _bterm(nullptr) {}
-  tmg_rcterm(dbBTerm* bterm) : _iterm(nullptr), _bterm(bterm) {}
-  dbITerm* const _iterm;
-  dbBTerm* const _bterm;
+  dbITerm* _iterm;
+  dbBTerm* _bterm;
   tmg_rcpt* _pt;        // list of points
   tmg_rcpt* _first_pt;  // first point in dfs
 };
 
 struct tmg_rcshort
 {
-  tmg_rcshort(int i0, int i1) : _i0(i0), _i1(i1) {}
-  const int _i0;
-  const int _i1;
-  bool _skip{false};
+  int _i0;
+  int _i1;
+  bool _skip;
 };
 
 // This stores shapes by level through addShape.  Once all the shapes
@@ -159,11 +155,10 @@ class tmg_conn
   void loadSWire(dbNet* net);
   bool isConnected() { return _connected; }
   int ptDist(int fr, int to) const;
-  const tmg_rcpt& pt(const int index) const { return _ptV[index]; }
+
   void checkConnOrdered();
 
  private:
-  tmg_rcpt& pt(const int index) { return _ptV[index]; }
   void splitTtop();
   void splitBySj(int j, int rt, int sjxMin, int sjyMin, int sjxMax, int sjyMax);
   void findConnections();
@@ -200,7 +195,7 @@ class tmg_conn
   void dfsClear();
   bool dfsStart(int& j);
   bool dfsNext(int* from, int* to, int* k, bool* is_short, bool* is_loop);
-  int isVisited(int j) const;
+  int isVisited(int j);
   void addToWire(int fr, int to, int k, bool is_short, bool is_loop);
   int getExtension(int ipt, const tmg_rc* rc);
   int addPoint(int ipt, const tmg_rc* rc);
@@ -225,12 +220,16 @@ class tmg_conn
   std::vector<tmg_rcshort> _shortV;
   dbNet* _net;
   bool _hasSWire;
+  bool _preserveSWire;
+  int _swireNetCnt;
   bool _connected;
   dbWireEncoder _encoder;
   dbWire* _newWire;
   dbTechNonDefaultRule* _net_rule;
   dbTechNonDefaultRule* _path_rule;
-  bool _need_short_wire_id;
+  int _misc_cnt;
+  int _cut_end_extMin;
+  int _need_short_wire_id;
   std::vector<std::array<tmg_connect_shape, 32>> _csVV;
   std::array<tmg_connect_shape, 32>* _csV;
   std::vector<int> _csNV;
@@ -240,6 +239,7 @@ class tmg_conn
   int _last_id;
   int _firstSegmentAfterVia;
   utl::Logger* logger_;
+  friend class tmg_conn_graph;
 };
 
 }  // namespace odb

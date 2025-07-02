@@ -11,7 +11,6 @@ class frEndStyle
  public:
   // constructor
   frEndStyle() = default;
-  frEndStyle& operator=(const frEndStyle&) = default;
   frEndStyle(const frEndStyle& styleIn) = default;
   frEndStyle(frEndStyleEnum styleIn) : style_(styleIn) {}
   // setters
@@ -37,7 +36,6 @@ class frSegStyle
  public:
   // constructor
   frSegStyle() = default;
-  frSegStyle& operator=(const frSegStyle&) = default;
   frSegStyle(const frSegStyle& in) = default;
   // setters
   void setWidth(frUInt4 widthIn) { width_ = widthIn; }

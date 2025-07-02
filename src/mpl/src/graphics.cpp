@@ -286,16 +286,43 @@ void Graphics::setMaxLevel(const int max_level)
 void Graphics::finishedClustering(PhysicalHierarchy* tree)
 {
   root_ = tree->root.get();
-  setXMarksSize();
+  setXMarksSizeAndPosition(tree->blocked_boundaries);
 }
 
-// Mark to indicate blocked regions for pins.
-void Graphics::setXMarksSize()
+void Graphics::setXMarksSizeAndPosition(
+    const std::set<Boundary>& blocked_boundaries)
 {
-  const odb::Rect& die = block_->getDieArea();
+  const odb::Rect die = block_->getDieArea();
 
   // Not too big/small
-  x_mark_size_ = (die.dx() + die.dy()) * 0.02;
+  x_mark_size_ = (die.dx() + die.dy()) * 0.03;
+
+  for (Boundary boundary : blocked_boundaries) {
+    odb::Point x_mark_point;
+
+    switch (boundary) {
+      case L: {
+        x_mark_point = odb::Point(die.xMin(), die.yCenter());
+        break;
+      }
+      case R: {
+        x_mark_point = odb::Point(die.xMax(), die.yCenter());
+        break;
+      }
+      case B: {
+        x_mark_point = odb::Point(die.xCenter(), die.yMin());
+        break;
+      }
+      case T: {
+        x_mark_point = odb::Point(die.xCenter(), die.yMax());
+        break;
+      }
+      case NONE:
+        break;
+    }
+
+    blocked_boundary_to_mark_[boundary] = x_mark_point;
+  }
 }
 
 void Graphics::drawCluster(Cluster* cluster, gui::Painter& painter)
@@ -390,7 +417,13 @@ void Graphics::drawObjects(gui::Painter& painter)
 
   int i = 0;
   for (const auto& macro : soft_macros_) {
-    if (isSkippable(macro)) {
+    Cluster* cluster = macro.getCluster();
+
+    if (!cluster) {  // fixed terminals
+      continue;
+    }
+
+    if (cluster->isClusterOfUnplacedIOPins()) {
       continue;
     }
 
@@ -425,10 +458,6 @@ void Graphics::drawObjects(gui::Painter& painter)
 
   i = 0;
   for (const auto& macro : hard_macros_) {
-    if (isSkippable(macro)) {
-      continue;
-    }
-
     const int lx = block_->micronsToDbu(macro.getX());
     const int ly = block_->micronsToDbu(macro.getY());
     const int width = block_->micronsToDbu(macro.getWidth());
@@ -493,7 +522,7 @@ void Graphics::drawObjects(gui::Painter& painter)
     }
   }
 
-  drawBlockedRegionsIndication(painter);
+  drawBlockedBoundariesIndication(painter);
 
   painter.setBrush(gui::Painter::transparent);
   if (only_final_result_) {
@@ -518,14 +547,6 @@ void Graphics::drawObjects(gui::Painter& painter)
   }
 }
 
-template <typename T>
-bool Graphics::isSkippable(const T& macro)
-{
-  Cluster* cluster = macro.getCluster();
-
-  return !cluster /*fixed terminal*/ || cluster->isClusterOfUnplacedIOPins();
-}
-
 // Draw guidance regions for macros.
 void Graphics::drawGuides(gui::Painter& painter)
 {
@@ -547,13 +568,13 @@ void Graphics::drawGuides(gui::Painter& painter)
   }
 }
 
-void Graphics::drawBlockedRegionsIndication(gui::Painter& painter)
+void Graphics::drawBlockedBoundariesIndication(gui::Painter& painter)
 {
   painter.setPen(gui::Painter::red, true);
   painter.setBrush(gui::Painter::transparent);
 
-  for (const odb::Rect& region : blocked_regions_for_pins_) {
-    painter.drawX(region.xCenter(), region.yCenter(), x_mark_size_);
+  for (const auto [boundary, x_mark_point] : blocked_boundary_to_mark_) {
+    painter.drawX(x_mark_point.getX(), x_mark_point.getY(), x_mark_size_);
   }
 }
 
@@ -566,7 +587,7 @@ void Graphics::drawBundledNets(gui::Painter& painter,
     const T& target = macros[bundled_net.terminals.second];
 
     if (target.isClusterOfUnplacedIOPins()) {
-      drawDistToRegion(painter, source, target);
+      drawDistToIoConstraintBoundary(painter, source, target);
       continue;
     }
 
@@ -584,30 +605,51 @@ void Graphics::drawBundledNets(gui::Painter& painter,
 }
 
 template <typename T>
-void Graphics::drawDistToRegion(gui::Painter& painter,
-                                const T& macro,
-                                const T& io)
+void Graphics::drawDistToIoConstraintBoundary(gui::Painter& painter,
+                                              const T& macro,
+                                              const T& io)
 {
   if (isOutsideTheOutline(macro)) {
     return;
   }
 
-  odb::Point from(block_->micronsToDbu(macro.getPinX()),
-                  block_->micronsToDbu(macro.getPinY()));
-  from.addX(outline_.xMin());
-  from.addY(outline_.yMin());
+  const int x1 = block_->micronsToDbu(macro.getPinX());
+  const int y1 = block_->micronsToDbu(macro.getPinY());
+  odb::Point from(x1, y1);
 
   odb::Point to;
-  if (io.getCluster()->isClusterOfUnconstrainedIOPins()) {
-    computeDistToNearestRegion(
-        from, available_regions_for_unconstrained_pins_, &to);
+  Boundary constraint_boundary = io.getCluster()->getConstraintBoundary();
+
+  if (constraint_boundary == Boundary::L
+      || constraint_boundary == Boundary::R) {
+    const int x2 = block_->micronsToDbu(io.getPinX());
+    const int y2 = block_->micronsToDbu(macro.getPinY());
+    to.setX(x2);
+    to.setY(y2);
+  } else if (constraint_boundary == Boundary::B
+             || constraint_boundary == Boundary::T) {
+    const int x2 = block_->micronsToDbu(macro.getPinX());
+    const int y2 = block_->micronsToDbu(io.getPinY());
+    to.setX(x2);
+    to.setY(y2);
   } else {
-    computeDistToNearestRegion(
-        from, {io_cluster_to_constraint_.at(io.getCluster())}, &to);
+    // We need to use the bbox of the SoftMacro to get the necessary
+    // offset compensation (the cluster bbox is the bbox w.r.t. to the
+    // actual die area).
+    const Rect offset_die = io.getBBox();
+    Boundary closest_unblocked_boundary
+        = getClosestUnblockedBoundary(macro, offset_die);
+
+    to = getClosestBoundaryPoint(macro, offset_die, closest_unblocked_boundary);
   }
 
+  addOutlineOffsetToLine(from, to);
+
   painter.drawLine(from, to);
-  painter.drawString(to.getX(), to.getY(), gui::Painter::CENTER, io.getName());
+  painter.drawString(to.getX(),
+                     to.getY(),
+                     gui::Painter::CENTER,
+                     toString(constraint_boundary));
 }
 
 template <typename T>
@@ -617,12 +659,87 @@ bool Graphics::isOutsideTheOutline(const T& macro) const
          || block_->micronsToDbu(macro.getPinY()) > outline_.dy();
 }
 
+// Here, we have to manually decompensate the offset of the
+// coordinates that come from the cluster.
+template <typename T>
+odb::Point Graphics::getClosestBoundaryPoint(const T& macro,
+                                             const Rect& die,
+                                             Boundary closest_boundary)
+{
+  odb::Point to;
+
+  if (closest_boundary == Boundary::L) {
+    to.setX(block_->micronsToDbu(die.xMin()));
+    to.setY(block_->micronsToDbu(macro.getPinY()));
+  } else if (closest_boundary == Boundary::R) {
+    to.setX(block_->micronsToDbu(die.xMax()));
+    to.setY(block_->micronsToDbu(macro.getPinY()));
+  } else if (closest_boundary == Boundary::B) {
+    to.setX(block_->micronsToDbu(macro.getPinX()));
+    to.setY(block_->micronsToDbu(die.yMin()));
+  } else {  // Top
+    to.setX(block_->micronsToDbu(macro.getPinX()));
+    to.setY(block_->micronsToDbu(die.yMax()));
+  }
+
+  return to;
+}
+
 void Graphics::addOutlineOffsetToLine(odb::Point& from, odb::Point& to)
 {
   from.addX(outline_.xMin());
   from.addY(outline_.yMin());
   to.addX(outline_.xMin());
   to.addY(outline_.yMin());
+}
+
+template <typename T>
+Boundary Graphics::getClosestUnblockedBoundary(const T& macro, const Rect& die)
+{
+  const float macro_x = macro.getPinX();
+  const float macro_y = macro.getPinY();
+
+  float shortest_distance = std::numeric_limits<float>::max();
+  Boundary closest_boundary = Boundary::NONE;
+
+  if (!isBlockedBoundary(Boundary::L)) {
+    const float dist_to_left = std::abs(macro_x - die.xMin());
+    if (dist_to_left < shortest_distance) {
+      shortest_distance = dist_to_left;
+      closest_boundary = Boundary::L;
+    }
+  }
+
+  if (!isBlockedBoundary(Boundary::R)) {
+    const float dist_to_right = std::abs(macro_x - die.xMax());
+    if (dist_to_right < shortest_distance) {
+      shortest_distance = dist_to_right;
+      closest_boundary = Boundary::R;
+    }
+  }
+
+  if (!isBlockedBoundary(Boundary::B)) {
+    const float dist_to_bottom = std::abs(macro_y - die.yMin());
+    if (dist_to_bottom < shortest_distance) {
+      shortest_distance = dist_to_bottom;
+      closest_boundary = Boundary::B;
+    }
+  }
+
+  if (!isBlockedBoundary(Boundary::T)) {
+    const float dist_to_top = std::abs(macro_y - die.yMax());
+    if (dist_to_top < shortest_distance) {
+      closest_boundary = Boundary::T;
+    }
+  }
+
+  return closest_boundary;
+}
+
+bool Graphics::isBlockedBoundary(Boundary boundary)
+{
+  return blocked_boundary_to_mark_.find(boundary)
+         != blocked_boundary_to_mark_.end();
 }
 
 // Give some transparency to mixed and hard so we can see overlap with
@@ -713,24 +830,6 @@ void Graphics::setFences(const std::map<int, Rect>& fences)
   fences_ = fences;
 }
 
-void Graphics::setIOConstraintsMap(
-    const ClusterToBoundaryRegionMap& io_cluster_to_constraint)
-{
-  io_cluster_to_constraint_ = io_cluster_to_constraint;
-}
-
-void Graphics::setBlockedRegionsForPins(
-    const std::vector<odb::Rect>& blocked_regions_for_pins)
-{
-  blocked_regions_for_pins_ = blocked_regions_for_pins;
-}
-
-void Graphics::setAvailableRegionsForUnconstrainedPins(
-    const BoundaryRegionList& regions)
-{
-  available_regions_for_unconstrained_pins_ = regions;
-}
-
 void Graphics::eraseDrawing()
 {
   // Ensure we don't try to access the clusters after they were deleted
@@ -743,7 +842,7 @@ void Graphics::eraseDrawing()
   bundled_nets_.clear();
   outline_.reset(0, 0, 0, 0);
   outlines_.clear();
-  blocked_regions_for_pins_.clear();
+  blocked_boundary_to_mark_.clear();
   guides_.clear();
 }
 

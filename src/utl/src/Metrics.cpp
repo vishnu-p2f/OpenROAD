@@ -15,7 +15,7 @@ namespace utl {
 std::string MetricsEntry::assembleJSON(const std::list<MetricsEntry>& entries)
 {
   std::string json = "{";
-  std::string separator;
+  std::string separator = "";
   for (MetricsEntry entry : entries) {
     json += fmt::format("{}\n\t\"{}\": {}", separator, entry.key, entry.value);
     separator = ",";
@@ -53,9 +53,8 @@ void MetricsPolicy::applyPolicy(std::list<MetricsEntry>& entries)
         auto copy_iter = iter;
         iter++;
         if (matching(copy_iter->key)) {
-          if (matched) {
+          if (matched)
             entries.erase(copy_iter);
-          }
           matched = true;
         }
       }
@@ -67,9 +66,8 @@ void MetricsPolicy::applyPolicy(std::list<MetricsEntry>& entries)
       std::list<MetricsEntry>::iterator last;
       for (auto iter = entries.begin(); iter != entries.end(); iter++) {
         if (matching(iter->key)) {
-          if (matched) {
+          if (matched)
             entries.erase(last);
-          }
           last = iter;
           matched = true;
         }

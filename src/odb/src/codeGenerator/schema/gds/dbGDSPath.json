@@ -1,5 +1,6 @@
 {
     "name":"dbGDSPath",
+    "type":"dbObject",
     "fields":[
       {
         "name":"_layer",
@@ -40,4 +41,5 @@
       "dbGDSStructure.h"
     ],
     "cpp_includes": ["odb/dbTypes.h", "odb/geom.h"]
-}
+  }
+  

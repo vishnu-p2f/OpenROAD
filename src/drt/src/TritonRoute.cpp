@@ -12,7 +12,6 @@
 #include <memory>
 #include <set>
 #include <string>
-#include <thread>
 #include <utility>
 #include <vector>
 
@@ -66,11 +65,6 @@ void TritonRoute::setDebugDumpDR(bool on, const std::string& dumpDir)
 {
   debug_->debugDumpDR = on;
   debug_->dumpDir = dumpDir;
-}
-
-void TritonRoute::setDebugSnapshotDir(const std::string& snapshotDir)
-{
-  debug_->snapshotDir = snapshotDir;
 }
 
 void TritonRoute::setDebugMaze(bool on)
@@ -588,18 +582,6 @@ void TritonRoute::initDesign()
     }
   }
 
-  if (!router_cfg_->VIA_ACCESS_LAYER_NAME.empty()) {
-    frLayer* layer = tech->getLayer(router_cfg_->VIA_ACCESS_LAYER_NAME);
-    if (layer) {
-      router_cfg_->VIA_ACCESS_LAYERNUM = layer->getLayerNum();
-    } else {
-      logger_->warn(utl::DRT,
-                    609,
-                    "via access layer {} not found.",
-                    router_cfg_->VIA_ACCESS_LAYER_NAME);
-    }
-  }
-
   if (!router_cfg_->REPAIR_PDN_LAYER_NAME.empty()) {
     frLayer* layer = tech->getLayer(router_cfg_->REPAIR_PDN_LAYER_NAME);
     if (layer) {
@@ -642,10 +624,6 @@ void TritonRoute::ta()
     ta->setDebug(graphics_factory_->makeUniqueTAGraphics());
   }
   ta->main();
-  if (debug_->writeNetTracks) {
-    io::Writer writer(getDesign(), logger_);
-    writer.updateTrackAssignment(db_->getChip()->getBlock());
-  }
 }
 
 void TritonRoute::dr()
@@ -697,6 +675,9 @@ void TritonRoute::endFR()
   dr_.reset();
   io::Writer writer(getDesign(), logger_);
   writer.updateDb(db_, router_cfg_.get());
+  if (debug_->writeNetTracks) {
+    writer.updateTrackAssignment(db_->getChip()->getBlock());
+  }
 
   num_drvs_ = design_->getTopBlock()->getNumMarkers();
 
@@ -847,7 +828,7 @@ void TritonRoute::sendDesignDist()
     std::string router_cfg_path
         = fmt::format("{}DESIGN.router_cfg", shared_volume_);
 
-    db_->write(utl::OutStreamHandler(design_path.c_str(), true).getStream());
+    db_->write(utl::StreamHandler(design_path.c_str(), true).getStream());
     writeGlobals(router_cfg_path);
     dst::JobMessage msg(dst::JobMessage::UPDATE_DESIGN,
                         dst::JobMessage::BROADCAST),
@@ -953,20 +934,13 @@ void TritonRoute::sendDesignUpdates(const std::string& router_cfg_path,
 
 int TritonRoute::main()
 {
-  // Just to verify that OMP support is compiled in correctly.
-  omp_set_num_threads(2);
-#pragma omp parallel
-  {
-    if (omp_get_num_threads() != 2) {
-      logger_->error(DRT, 623, "OMP threading is not working.");
-    }
-  }
-
   if (router_cfg_->DBPROCESSNODE == "GF14_13M_3Mx_2Cx_4Kx_2Hx_2Gx_LB") {
     router_cfg_->USENONPREFTRACKS = false;
   }
-  std::unique_ptr<std::thread> pa_thread;
-
+  asio::thread_pool pa_pool(1);
+  if (!distributed_) {
+    pa_pool.join();
+  }
   if (debug_->debugDumpDR) {
     std::string router_cfg_path
         = fmt::format("{}/init_router_cfg.bin", debug_->dumpDir);
@@ -974,7 +948,7 @@ int TritonRoute::main()
   }
   if (distributed_) {
     if (router_cfg_->DO_PA) {
-      pa_thread = std::make_unique<std::thread>([this]() {
+      asio::post(pa_pool, [this]() {
         sendDesignDist();
         dst::JobMessage msg(dst::JobMessage::PIN_ACCESS,
                             dst::JobMessage::BROADCAST),
@@ -1010,9 +984,7 @@ int TritonRoute::main()
     if (debug_->debugPA) {
       pa_->setDebug(graphics_factory_->makeUniquePAGraphics());
     }
-    if (pa_thread) {
-      pa_thread->join();
-    }
+    pa_pool.join();
     pa_->main();
     /// bookmark
     if (distributed_ || debug_->debugDR || debug_->debugDumpDR) {
@@ -1029,7 +1001,7 @@ int TritonRoute::main()
     }
   }
   if (debug_->debugDumpDR) {
-    db_->write(utl::OutStreamHandler(
+    db_->write(utl::StreamHandler(
                    fmt::format("{}/design.odb", debug_->dumpDir).c_str(), true)
                    .getStream());
   }
@@ -1056,9 +1028,6 @@ int TritonRoute::main()
 
 void TritonRoute::pinAccess(const std::vector<odb::dbInst*>& target_insts)
 {
-  if (router_cfg_->DBPROCESSNODE == "GF14_13M_3Mx_2Cx_4Kx_2Hx_2Gx_LB") {
-    router_cfg_->USENONPREFTRACKS = false;
-  }
   if (distributed_) {
     asio::post(*dist_pool_, [this]() {
       sendDesignDist();
@@ -1074,33 +1043,18 @@ void TritonRoute::pinAccess(const std::vector<odb::dbInst*>& target_insts)
   clearDesign();
   router_cfg_->ENABLE_VIA_GEN = true;
   initDesign();
-  pa_ = std::make_unique<FlexPA>(
-      getDesign(), logger_, dist_, router_cfg_.get());
-  pa_->setTargetInstances(target_insts);
+  FlexPA pa(getDesign(), logger_, dist_, router_cfg_.get());
+  pa.setTargetInstances(target_insts);
   if (debug_->debugPA) {
-    pa_->setDebug(graphics_factory_->makeUniquePAGraphics());
+    pa.setDebug(graphics_factory_->makeUniquePAGraphics());
   }
   if (distributed_) {
-    pa_->setDistributed(dist_ip_, dist_port_, shared_volume_, cloud_sz_);
+    pa.setDistributed(dist_ip_, dist_port_, shared_volume_, cloud_sz_);
     dist_pool_->join();
   }
-  pa_->main();
+  pa.main();
   io::Writer writer(getDesign(), logger_);
   writer.updateDb(db_, router_cfg_.get(), true);
-}
-
-void TritonRoute::deleteInstancePAData(frInst* inst)
-{
-  if (pa_) {
-    pa_->deleteInst(inst);
-  }
-}
-
-void TritonRoute::addInstancePAData(frInst* inst)
-{
-  if (pa_) {
-    pa_->addInst(inst);
-  }
 }
 
 void TritonRoute::fixMaxSpacing(int num_threads)
@@ -1267,9 +1221,6 @@ void TritonRoute::setParams(const ParamStruct& params)
   if (!params.viaInPinTopLayer.empty()) {
     router_cfg_->VIAINPIN_TOPLAYER_NAME = params.viaInPinTopLayer;
   }
-  if (!params.viaAccessLayer.empty()) {
-    router_cfg_->VIA_ACCESS_LAYER_NAME = params.viaAccessLayer;
-  }
   if (params.drouteEndIter >= 0) {
     router_cfg_->END_ITERATION = params.drouteEndIter;
   }
@@ -1432,26 +1383,6 @@ void TritonRoute::reportDRC(const std::string& file_name,
   }
 
   tool_category->writeTR(file_name);
-}
-
-std::vector<int> TritonRoute::routeLayerLengths(odb::dbWire* wire) const
-{
-  std::vector<int> lengths;
-  lengths.resize(db_->getTech()->getLayerCount());
-  odb::dbWireShapeItr shapes;
-  odb::dbShape s;
-
-  for (shapes.begin(wire); shapes.next(s);) {
-    if (!s.isVia()) {
-      lengths[s.getTechLayer()->getNumber()] += s.getLength();
-    } else {
-      if (s.getTechVia()) {
-        lengths[s.getTechVia()->getBottomLayer()->getNumber() + 1] += 1;
-      }
-    }
-  }
-
-  return lengths;
 }
 
 }  // namespace drt

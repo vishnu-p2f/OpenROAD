@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include <boost/container/flat_map.hpp>
 #include <cstdint>
 #include <map>
 
@@ -56,7 +55,7 @@ class _dbITerm : public _dbObject
   dbId<_dbITerm> _next_modnet_iterm;
   dbId<_dbITerm> _prev_modnet_iterm;
   uint32_t _sta_vertex_id;  // not saved
-  boost::container::flat_map<dbId<_dbMPin>, dbId<_dbAccessPoint>> aps_;
+  std::map<dbId<_dbMPin>, dbId<_dbAccessPoint>> aps_;
 
   _dbITerm(_dbDatabase*);
   _dbITerm(_dbDatabase*, const _dbITerm& i);

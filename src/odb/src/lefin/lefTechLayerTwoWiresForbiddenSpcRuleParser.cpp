@@ -9,7 +9,6 @@
 #include "lefLayerPropParser.h"
 #include "odb/db.h"
 #include "odb/lefin.h"
-#include "parserUtils.h"
 
 namespace odb {
 
@@ -19,10 +18,17 @@ lefTechLayerTwoWiresForbiddenSpcRuleParser::
   lefin_ = l;
 }
 
-void lefTechLayerTwoWiresForbiddenSpcRuleParser::parse(const std::string& s,
+void lefTechLayerTwoWiresForbiddenSpcRuleParser::parse(std::string s,
                                                        odb::dbTechLayer* layer)
 {
-  processRules(s, [this, layer](const std::string& rule) {
+  std::vector<std::string> rules;
+  boost::split(rules, s, boost::is_any_of(";"));
+  for (auto& rule : rules) {
+    boost::algorithm::trim(rule);
+    if (rule.empty()) {
+      continue;
+    }
+    rule += " ; ";
     if (!parseSubRule(rule, layer)) {
       lefin_->warning(
           438,
@@ -31,7 +37,7 @@ void lefTechLayerTwoWiresForbiddenSpcRuleParser::parse(const std::string& s,
           layer->getName(),
           rule);
     }
-  });
+  }
 }
 
 void lefTechLayerTwoWiresForbiddenSpcRuleParser::setInt(
@@ -51,16 +57,15 @@ void lefTechLayerTwoWiresForbiddenSpcRuleParser::setForbiddenSpacing(
 }
 
 bool lefTechLayerTwoWiresForbiddenSpcRuleParser::parseSubRule(
-    const std::string& s,
+    std::string s,
     odb::dbTechLayer* layer)
 {
-  qi::rule<std::string::const_iterator, std::string(), ascii::space_type>
-      _string;
+  qi::rule<std::string::iterator, std::string(), ascii::space_type> _string;
   _string %= lexeme[+(char_ - ' ')];
   odb::dbTechLayerTwoWiresForbiddenSpcRule* rule
       = odb::dbTechLayerTwoWiresForbiddenSpcRule::create(layer);
 
-  qi::rule<std::string::const_iterator, space_type> forbiddenSpacing
+  qi::rule<std::string::iterator, space_type> forbiddenSpacing
       = (lit("TWOWIRESFORBIDDENSPACING") >> double_ >> double_)[boost::bind(
             &lefTechLayerTwoWiresForbiddenSpcRuleParser::setForbiddenSpacing,
             this,

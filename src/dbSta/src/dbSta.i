@@ -33,7 +33,6 @@ using sta::Instance;
 %include "power/Power.i"
 %include "sdc/Sdc.i"
 %include "sdf/Sdf.i"
-%include "search/Property.i"
 %include "search/Search.i"
 %include "spice/WriteSpice.i"
 %include "util/Util.i"
@@ -107,7 +106,8 @@ sta_to_db_port(Port *port)
   dbITerm *iterm;
   dbBTerm *bterm;
   dbModITerm *moditerm;
-  db_network->staToDb(pin, iterm, bterm, moditerm);
+  dbModBTerm *modbterm;
+  db_network->staToDb(pin, iterm, bterm, moditerm, modbterm);
   return bterm;
 }
 
@@ -119,7 +119,8 @@ sta_to_db_pin(Pin *pin)
   dbITerm *iterm;
   dbBTerm *bterm;
   dbModITerm *moditerm;
-  db_network->staToDb(pin, iterm, bterm, moditerm);
+  dbModBTerm* modbterm;
+  db_network->staToDb(pin, iterm, bterm, moditerm, modbterm);
   return iterm;
 }
 
