@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // Copyright (c) 2022-2025, The OpenROAD Authors
 
-// Parser for LEF58 area rules that define minimum area requirements for shapes
 #include <functional>
 #include <string>
 #include <utility>
@@ -11,23 +10,27 @@
 #include "lefLayerPropParser.h"
 #include "odb/db.h"
 #include "odb/lefin.h"
-#include "parserUtils.h"
 
 namespace odb {
 
-// Initialize parser with LEF reader
 lefTechLayerAreaRuleParser::lefTechLayerAreaRuleParser(lefinReader* l)
 {
   lefin_ = l;
 }
 
-// Parse input string containing area rules for a layer
 void lefTechLayerAreaRuleParser::parse(
     const std::string& s,
     odb::dbTechLayer* layer,
     std::vector<std::pair<odb::dbObject*, std::string>>& incomplete_props)
 {
-  processRules(s, [this, layer, &incomplete_props](const std::string& rule) {
+  std::vector<std::string> rules;
+  boost::split(rules, s, boost::is_any_of(";"));
+  for (auto& rule : rules) {
+    boost::algorithm::trim(rule);
+    if (rule.empty()) {
+      continue;
+    }
+    rule += " ; ";
     if (!parseSubRule(rule, layer, incomplete_props)) {
       lefin_->warning(278,
                       "parse mismatch in layer property LEF58_AREA for "
@@ -35,10 +38,9 @@ void lefTechLayerAreaRuleParser::parse(
                       layer->getName(),
                       rule);
     }
-  });
+  }
 }
 
-// Helper function to set integer values (converts to database units)
 void lefTechLayerAreaRuleParser::setInt(
     double val,
     odb::dbTechLayerAreaRule* rule,
@@ -47,7 +49,6 @@ void lefTechLayerAreaRuleParser::setInt(
   (rule->*func)(lefin_->dbdist(val));
 }
 
-// Set edge length exception parameters
 void lefTechLayerAreaRuleParser::setExceptEdgeLengths(
     const boost::fusion::vector<double, double>& params,
     odb::dbTechLayerAreaRule* rule)
@@ -57,7 +58,6 @@ void lefTechLayerAreaRuleParser::setExceptEdgeLengths(
   rule->setExceptEdgeLengths(size);
 }
 
-// Set minimum size exception parameters
 void lefTechLayerAreaRuleParser::setExceptMinSize(
     const boost::fusion::vector<double, double>& params,
     odb::dbTechLayerAreaRule* rule)
@@ -67,7 +67,6 @@ void lefTechLayerAreaRuleParser::setExceptMinSize(
   rule->setExceptMinSize(size);
 }
 
-// Set step size exception parameters
 void lefTechLayerAreaRuleParser::setExceptStep(
     const boost::fusion::vector<double, double>& params,
     odb::dbTechLayerAreaRule* rule)
@@ -77,7 +76,6 @@ void lefTechLayerAreaRuleParser::setExceptStep(
   rule->setExceptStep(size);
 }
 
-// Set trim layer reference, handling incomplete properties
 void lefTechLayerAreaRuleParser::setTrimLayer(
     std::string val,
     odb::dbTechLayerAreaRule* rule,
@@ -92,19 +90,14 @@ void lefTechLayerAreaRuleParser::setTrimLayer(
   }
 }
 
-// Parse a single area rule
-// Format: AREA value [MASK mask] [EXCEPTMINWIDTH width] [EXCEPTEDGELENGTH
-// length1 length2]
-//         [EXCEPTMINSIZE width height] [EXCEPTSTEP stepx stepy] [RECTWIDTH
-//         width] [EXCEPTRECTANGLE] [LAYER name OVERLAP overlap] ;
 bool lefTechLayerAreaRuleParser::parseSubRule(
-    const std::string& s,
+    std::string s,
     odb::dbTechLayer* layer,
     std::vector<std::pair<odb::dbObject*, std::string>>& incomplete_props)
 {
   odb::dbTechLayerAreaRule* rule = odb::dbTechLayerAreaRule::create(layer);
 
-  qi::rule<std::string::const_iterator, space_type> EXCEPT_EDGE_LENGTH
+  qi::rule<std::string::iterator, space_type> EXCEPT_EDGE_LENGTH
       = ((lit("EXCEPTEDGELENGTH") >> double_ >> double_)[boost::bind(
              &lefTechLayerAreaRuleParser::setExceptEdgeLengths, this, _1, rule)]
          | lit("EXCEPTEDGELENGTH") >> double_[boost::bind(
@@ -114,15 +107,15 @@ bool lefTechLayerAreaRuleParser::parseSubRule(
                rule,
                &dbTechLayerAreaRule::setExceptEdgeLength)]);
 
-  qi::rule<std::string::const_iterator, space_type> EXCEPT_MIN_SIZE
+  qi::rule<std::string::iterator, space_type> EXCEPT_MIN_SIZE
       = (lit("EXCEPTMINSIZE") >> double_ >> double_)[boost::bind(
           &lefTechLayerAreaRuleParser::setExceptMinSize, this, _1, rule)];
 
-  qi::rule<std::string::const_iterator, space_type> EXCEPT_STEP
+  qi::rule<std::string::iterator, space_type> EXCEPT_STEP
       = (lit("EXCEPTSTEP") >> double_ >> double_)[boost::bind(
           &lefTechLayerAreaRuleParser::setExceptStep, this, _1, rule)];
 
-  qi::rule<std::string::const_iterator, space_type> LAYER
+  qi::rule<std::string::iterator, space_type> LAYER
       = ((lit("LAYER")
           >> _string[boost::bind(&lefTechLayerAreaRuleParser::setTrimLayer,
                                  this,
@@ -133,7 +126,7 @@ bool lefTechLayerAreaRuleParser::parseSubRule(
          >> lit("OVERLAP")
          >> int_[boost::bind(&odb::dbTechLayerAreaRule::setOverlap, rule, _1)]);
 
-  qi::rule<std::string::const_iterator, space_type> AREA
+  qi::rule<std::string::iterator, space_type> AREA
       = (lit("AREA") >> double_[boost::bind(&lefTechLayerAreaRuleParser::setInt,
                                             this,
                                             _1,

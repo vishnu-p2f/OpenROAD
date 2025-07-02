@@ -69,15 +69,6 @@ void Master::setTopPowerType(const int top_pwr)
 {
   top_pwr_ = top_pwr;
 }
-void Master::setDbMaster(dbMaster* db_master)
-{
-  db_master_ = db_master;
-}
-dbMaster* Master::getDbMaster() const
-{
-  return db_master_;
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -128,17 +119,7 @@ DbuY Node::getCenterY() const
 }
 dbInst* Node::getDbInst() const
 {
-  if (type_ != CELL) {
-    return nullptr;
-  }
-  return static_cast<dbInst*>(db_owner_);
-}
-dbBTerm* Node::getBTerm() const
-{
-  if (type_ != TERMINAL) {
-    return nullptr;
-  }
-  return static_cast<dbBTerm*>(db_owner_);
+  return db_inst_;
 }
 dbOrientType Node::getOrient() const
 {
@@ -158,15 +139,15 @@ bool Node::isHold() const
 }
 dbSite* Node::getSite() const
 {
-  if (!getDbInst() || !getDbInst()->getMaster()) {
+  if (!db_inst_ || !db_inst_->getMaster()) {
     return nullptr;
   }
-  return getDbInst()->getMaster()->getSite();
+  return db_inst_->getMaster()->getSite();
 }
 DbuX Node::siteWidth() const
 {
-  if (getDbInst()) {
-    auto site = getDbInst()->getMaster()->getSite();
+  if (db_inst_) {
+    auto site = db_inst_->getMaster()->getSite();
     if (site) {
       return DbuX{site->getWidth()};
     }
@@ -185,21 +166,12 @@ bool Node::isHybridParent() const
 }
 int64_t Node::area() const
 {
-  dbMaster* master = getDbInst()->getMaster();
+  dbMaster* master = db_inst_->getMaster();
   return int64_t(master->getWidth()) * master->getHeight();
 }
-std::string Node::name() const
+const char* Node::name() const
 {
-  if (type_ == CELL) {
-    return getDbInst()->getName();
-  }
-  if (type_ == TERMINAL) {
-    return getBTerm()->getName();
-  }
-  if (type_ == FILLER) {
-    return fmt::format("FILLER_{}", id_);
-  }
-  return "";
+  return db_inst_->getConstName();
 }
 int Node::getBottomPower() const
 {
@@ -223,15 +195,14 @@ bool Node::isFiller() const
 }
 bool Node::isStdCell() const
 {
-  if (getDbInst() == nullptr) {
+  if (db_inst_ == nullptr) {
     return false;
   }
-  return getDbInst()->isCore() || getDbInst()->isEndCap();
+  return db_inst_->isCore() || db_inst_->isEndCap();
 }
 bool Node::isBlock() const
 {
-  return getDbInst()
-         && getDbInst()->getMaster()->getType() == dbMasterType::BLOCK;
+  return db_inst_ && db_inst_->getMaster()->getType() == dbMasterType::BLOCK;
 }
 Group* Node::getGroup() const
 {
@@ -261,14 +232,6 @@ int Node::getGroupId() const
 {
   return group_id_;
 }
-Rect Node::getBBox() const
-{
-  return Rect(left_.v, bottom_.v, left_.v + width_.v, bottom_.v + height_.v);
-}
-uint8_t Node::getUsedLayers() const
-{
-  return used_layers_;
-}
 void Node::setId(int id)
 {
   id_ = id;
@@ -279,11 +242,7 @@ void Node::setFixed(bool in)
 }
 void Node::setDbInst(dbInst* inst)
 {
-  db_owner_ = inst;
-}
-void Node::setBTerm(dbBTerm* term)
-{
-  db_owner_ = term;
+  db_inst_ = inst;
 }
 void Node::setLeft(DbuX x)
 {
@@ -352,10 +311,6 @@ void Node::addPin(Pin* pin)
 void Node::setGroupId(int id)
 {
   group_id_ = id;
-}
-void Node::addUsedLayer(int layer)
-{
-  used_layers_ |= 1 << layer;
 }
 bool Node::adjustCurrOrient(const dbOrientType& newOri)
 {
@@ -536,10 +491,6 @@ const std::vector<Pin*>& Edge::getPins() const
 void Edge::addPin(Pin* pin)
 {
   pins_.emplace_back(pin);
-}
-void Edge::removePin(Pin* pin)
-{
-  pins_.erase(std::remove(pins_.begin(), pins_.end(), pin), pins_.end());
 }
 uint64_t Edge::hpwl() const
 {

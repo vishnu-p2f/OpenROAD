@@ -987,10 +987,11 @@ TEST_F(TestHconn, ConnectionMade)
         = db_network_->connectedPinIterator(cur_net);
     while (npi->hasNext()) {
       const sta::Pin* cur_pin = npi->next();
+      odb::dbModBTerm* modbterm;
       odb::dbModITerm* moditerm;
       odb::dbITerm* iterm;
       odb::dbBTerm* bterm;
-      db_network_->staToDb(cur_pin, iterm, bterm, moditerm);
+      db_network_->staToDb(cur_pin, iterm, bterm, moditerm, modbterm);
       if (iterm) {
         db_network_->connectPinAfter(const_cast<sta::Pin*>(cur_pin));
         sta_->connectPinAfter(const_cast<sta::Pin*>(cur_pin));
@@ -998,6 +999,9 @@ TEST_F(TestHconn, ConnectionMade)
       if (bterm) {
         db_network_->connectPinAfter(const_cast<sta::Pin*>(cur_pin));
         sta_->connectPinAfter(const_cast<sta::Pin*>(cur_pin));
+      }
+      if (modbterm) {
+        ;
       }
       if (moditerm) {
         ;

@@ -1,5 +1,6 @@
 {
     "name":"dbGDSBoundary",
+    "type":"dbObject",
     "fields":[
       {
         "name":"_layer",
@@ -28,4 +29,5 @@
       "dbGDSStructure.h"
     ],
     "cpp_includes": ["odb/dbTypes.h"]
-}
+  }
+  

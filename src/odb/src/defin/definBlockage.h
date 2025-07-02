@@ -50,6 +50,10 @@ class definBlockage : public definBase
   virtual void blockagePlacementMaxDensity(double max_density);
   virtual void blockagePlacementRect(int x1, int y1, int x2, int y2);
   virtual void blockagePlacementEnd();
+
+  definBlockage();
+  ~definBlockage() override;
+  void init() override;
 };
 
 }  // namespace odb

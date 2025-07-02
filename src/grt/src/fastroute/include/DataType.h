@@ -26,7 +26,7 @@ enum class RouteType
   MazeRoute
 };
 
-std::ostream& operator<<(std::ostream& os, const RouteType& type);
+std::ostream& operator<<(std::ostream& os, RouteType type);
 
 enum class Direction
 {
@@ -206,14 +206,14 @@ struct OrderNetPin
 {
   int treeIndex;
   int minX;
-  float length_per_pin;  // net length over pin count
+  float npv;  // net length over pin
 };
 
 struct OrderTree
 {
   int length;
   int treeIndex;
-  int16_t xmin;
+  int xmin;
 };
 
 struct OrderNetEdge

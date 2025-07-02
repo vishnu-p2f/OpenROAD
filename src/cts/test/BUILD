@@ -18,7 +18,6 @@ COMPULSORY_TESTS = [
     "dummy_load",
     "find_clock",
     "find_clock_pad",
-    "hier_insertion_delay",
     "insertion_delay",
     "lvt_lib",
     "max_cap",
@@ -165,9 +164,8 @@ cc_test(
     srcs = ["cts_unittest.cc"],
     linkstatic = True,  # TODO: remove once deps define all symbols
     deps = [
-        "//src/cts",
-        "//src/grt",
         "//src/utl",
+        "//src/cts",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
     ],

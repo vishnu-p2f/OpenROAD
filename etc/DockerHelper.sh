@@ -39,7 +39,6 @@ usage: $0 [CMD] [OPTIONS]
   -username                     Docker Username
   -password                     Docker Password
   -deps-prefixes-path=PATH      Path where the file with dependency prefixes should be stored (in Docker image)
-  -smoke                        Only run smoke test.
 
 EOF
     exit "${1:-1}"
@@ -143,11 +142,7 @@ _test() {
         echo "Could not find ${imagePath}, will attempt to create it" >&2
         _create
     fi
-    if [[ "${testTarget}" == "smoke" ]]; then
-        docker run --rm "${imagePath}" bash -c './build/src/openroad -help'
-    else
-        docker run --rm "${imagePath}" "./docker/test_wrapper.sh" "${compiler}" "ctest --test-dir build -j ${numThreads}"
-    fi
+    docker run --rm "${imagePath}" "./docker/test_wrapper.sh" "${compiler}" "ctest --test-dir build -j ${numThreads}"
 }
 
 _checkFromImage() {
@@ -268,7 +263,6 @@ isLocal="no"
 equivalenceDeps="yes"
 CI="no"
 LOCAL_PATH="/home/openroad-deps"
-testTarget="ctest"
 
 while [ "$#" -gt 0 ]; do
     case "${1}" in
@@ -283,9 +277,6 @@ while [ "$#" -gt 0 ]; do
             ;;
         -no_eqy )
             equivalenceDeps=no
-            ;;
-        -smoke )
-            testTarget="smoke"
             ;;
         -os=* )
             os="${1#*=}"

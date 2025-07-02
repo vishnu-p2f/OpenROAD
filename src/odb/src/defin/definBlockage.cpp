@@ -15,6 +15,20 @@
 
 namespace odb {
 
+definBlockage::definBlockage()
+{
+  init();
+}
+
+definBlockage::~definBlockage()
+{
+}
+
+void definBlockage::init()
+{
+  definBase::init();
+}
+
 void definBlockage::blockageRoutingBegin(const char* layer)
 {
   _layer = _tech->findLayer(layer);

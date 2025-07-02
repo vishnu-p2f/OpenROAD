@@ -26,6 +26,7 @@ class definTracks : public definBase
   Track _track;
 
  public:
+  /// Track interface methods
   virtual void tracksBegin(defDirection dir,
                            int orig,
                            int count,
@@ -34,6 +35,10 @@ class definTracks : public definBase
                            bool samemask);
   virtual void tracksLayer(const char* layer);
   virtual void tracksEnd();
+
+  definTracks();
+  ~definTracks() override;
+  void init() override;
 };
 
 }  // namespace odb

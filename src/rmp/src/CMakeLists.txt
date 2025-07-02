@@ -9,7 +9,6 @@ swig_lib(NAME      rmp
          NAMESPACE rmp
          I_FILE    rmp.i
          SCRIPTS   rmp.tcl
-         SWIG_INCLUDES ${OPENSTA_HOME}
 )
 
 target_sources(rmp
@@ -30,9 +29,6 @@ target_include_directories(rmp
     ../include
   PRIVATE
     .
-    # Unfortunate side-effect of swig include StaTcl.i
-    ${OPENSTA_HOME}/include/sta
-    ${OPENSTA_HOME}
  )
 
 target_link_libraries(rmp 
@@ -42,7 +38,6 @@ target_link_libraries(rmp
     OpenSTA
     rsz
     utl_lib
-    rmp_abc_library
     ${ABC_LIBRARY}
  )
 
@@ -65,6 +60,7 @@ target_link_libraries(rmp_abc_library
   PUBLIC
     OpenSTA
     dbSta_lib
+    libabc
     utl_lib
     ${ABC_LIBRARY}
 )
@@ -74,8 +70,7 @@ if (Python3_FOUND AND BUILD_PYTHON)
            NAMESPACE     rmp
            LANGUAGE      python
            I_FILE        rmp-py.i
-           SWIG_INCLUDES ${OPENSTA_HOME}
-                         ${PROJECT_SOURCE_DIR}/../include
+           SWIG_INCLUDES ${PROJECT_SOURCE_DIR}/../include
                          ${ODB_HOME}/src/swig/common
                          ${ODB_HOME}/src/swig/python
            SCRIPTS       ${CMAKE_CURRENT_BINARY_DIR}/rmp_py.py

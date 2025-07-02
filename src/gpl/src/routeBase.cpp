@@ -266,7 +266,8 @@ void RouteBase::reset()
   minRcTargetDensity_ = 0;
   minRcViolatedCnt_ = 0;
 
-  nbc_->resetMinRcCellSize();
+  minRcCellSize_.clear();
+  minRcCellSize_.shrink_to_fit();
 
   resetRoutabilityResources();
 }
@@ -288,7 +289,7 @@ void RouteBase::init()
   tg_ = std::move(tg);
 
   tg_->setLogger(log_);
-  nbc_->resizeMinRcCellSize();
+  minRcCellSize_.resize(nbc_->getGCells().size(), std::make_pair(0, 0));
 }
 
 void RouteBase::getRudyResult()
@@ -312,14 +313,6 @@ void RouteBase::getGrtResult()
   grouter_->globalRoute();
 
   updateGrtRoute();
-}
-
-void RouteBase::loadGrt()
-{
-  grouter_->setAllowCongestion(true);
-  grouter_->setCongestionIterations(0);
-  grouter_->setCriticalNetsPercentage(0);
-  grouter_->globalRoute();
 }
 
 int64_t RouteBase::inflatedAreaDelta() const
@@ -572,8 +565,14 @@ std::pair<bool, bool> RouteBase::routability()
     minRcViolatedCnt_ = 0;
 
     // save cell size info
-    nbc_->updateMinRcCellSize();
+    for (auto& gCell : nbc_->getGCells()) {
+      if (!gCell->isStdInstance()) {
+        continue;
+      }
 
+      minRcCellSize_[&gCell - nbc_->getGCells().data()]
+          = std::make_pair(gCell->dx(), gCell->dy());
+    }
   } else {
     minRcViolatedCnt_++;
     log_->info(GPL,
@@ -626,8 +625,7 @@ std::pair<bool, bool> RouteBase::routability()
     gCell->setSize(static_cast<int>(std::round(
                        gCell->dx() * std::sqrt(tile->inflatedRatio()))),
                    static_cast<int>(std::round(
-                       gCell->dy() * std::sqrt(tile->inflatedRatio()))),
-                   GCell::GCellChange::kRoutability);
+                       gCell->dy() * std::sqrt(tile->inflatedRatio()))));
 
     int64_t newCellArea
         = static_cast<int64_t>(gCell->dx()) * static_cast<int64_t>(gCell->dy());
@@ -719,7 +717,7 @@ std::pair<bool, bool> RouteBase::routability()
                minRcTargetDensity_);
 
     nbVec_[0]->setTargetDensity(minRcTargetDensity_);
-    nbc_->revertGCellSizeToMinRc();
+    revertGCellSizeToMinRc();
     nbVec_[0]->updateDensitySize();
     resetRoutabilityResources();
 
@@ -806,6 +804,20 @@ std::pair<bool, bool> RouteBase::routability()
   resetRoutabilityResources();
 
   return std::make_pair(true, true);
+}
+
+void RouteBase::revertGCellSizeToMinRc()
+{
+  // revert back the gcell sizes
+  for (auto& gCell : nbc_->getGCells()) {
+    if (!gCell->isStdInstance()) {
+      continue;
+    }
+
+    int idx = &gCell - nbc_->getGCells().data();
+
+    gCell->setSize(minRcCellSize_[idx].first, minRcCellSize_[idx].second);
+  }
 }
 
 float RouteBase::getRudyRC() const

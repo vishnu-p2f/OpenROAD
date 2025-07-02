@@ -302,7 +302,8 @@ dbRegion* dbRegion::create(dbBlock* block_, const char* name)
   }
 
   _dbRegion* region = block->_region_tbl->create();
-  region->_name = safe_strdup(name);
+  region->_name = strdup(name);
+  ZALLOCATED(region->_name);
   for (auto callback : block->_callbacks) {
     callback->inDbRegionCreate((dbRegion*) region);
   }

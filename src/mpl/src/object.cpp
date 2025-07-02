@@ -19,6 +19,41 @@ namespace mpl {
 using utl::MPL;
 
 ///////////////////////////////////////////////////////////////////////
+// Basic utility functions
+
+std::string toString(const Boundary& pin_access)
+{
+  switch (pin_access) {
+    case L:
+      return std::string("L");
+    case T:
+      return std::string("T");
+    case R:
+      return std::string("R");
+    case B:
+      return std::string("B");
+    default:
+      return std::string("NONE");
+  }
+}
+
+Boundary opposite(const Boundary& pin_access)
+{
+  switch (pin_access) {
+    case L:
+      return R;
+    case T:
+      return B;
+    case R:
+      return L;
+    case B:
+      return T;
+    default:
+      return NONE;
+  }
+}
+
+///////////////////////////////////////////////////////////////////////
 // Metrics Class
 Metrics::Metrics(unsigned int num_std_cell,
                  unsigned int num_macro,
@@ -198,12 +233,8 @@ std::string Cluster::getClusterTypeString() const
 {
   std::string cluster_type;
 
-  if (is_cluster_of_unconstrained_io_pins_) {
-    return "Unconstrained IOs";
-  }
-
   if (is_cluster_of_unplaced_io_pins_) {
-    return "Unplaced IOs";
+    return "Unplaced IO Pins";
   }
 
   if (is_io_pad_cluster_) {
@@ -269,14 +300,13 @@ void Cluster::copyInstances(const Cluster& cluster)
   }
 }
 
-void Cluster::setAsClusterOfUnplacedIOPins(
-    const std::pair<float, float>& pos,
-    const float width,
-    const float height,
-    const bool is_cluster_of_unconstrained_io_pins)
+void Cluster::setAsClusterOfUnplacedIOPins(const std::pair<float, float>& pos,
+                                           const float width,
+                                           const float height,
+                                           const Boundary constraint_boundary)
 {
   is_cluster_of_unplaced_io_pins_ = true;
-  is_cluster_of_unconstrained_io_pins_ = is_cluster_of_unconstrained_io_pins;
+  constraint_boundary_ = constraint_boundary;
   soft_macro_ = std::make_unique<SoftMacro>(pos, name_, width, height, this);
 }
 
@@ -291,16 +321,6 @@ void Cluster::setAsIOPadCluster(const std::pair<float, float>& pos,
 bool Cluster::isIOCluster() const
 {
   return is_cluster_of_unplaced_io_pins_ || is_io_pad_cluster_;
-}
-
-bool Cluster::isClusterOfUnconstrainedIOPins() const
-{
-  return is_cluster_of_unconstrained_io_pins_;
-}
-
-bool Cluster::isClusterOfUnplacedIOPins() const
-{
-  return is_cluster_of_unplaced_io_pins_;
 }
 
 void Cluster::setAsArrayOfInterconnectedMacros()
@@ -793,15 +813,9 @@ bool HardMacro::isClusterOfUnplacedIOPins() const
   return cluster_->isClusterOfUnplacedIOPins();
 }
 
-// Cluster support to identify if a fixed terminal correponds
-// to the cluster of unconstrained IO pins when running HardMacro SA.
-bool HardMacro::isClusterOfUnconstrainedIOPins() const
+Rect HardMacro::getBBox() const
 {
-  if (!cluster_) {
-    return false;
-  }
-
-  return cluster_->isClusterOfUnconstrainedIOPins();
+  return Rect(x_, y_, x_ + width_, y_ + height_);
 }
 
 // Get Physical Information
@@ -929,15 +943,10 @@ std::string HardMacro::getMasterName() const
 }
 
 ///////////////////////////////////////////////////////////////////////
-
-// Represent a "regular" cluster (Mixed, StdCell or Macro).
-SoftMacro::SoftMacro(Cluster* cluster)
-{
-  name_ = cluster->getName();
-  cluster_ = cluster;
-}
-
-// Represent a blockage.
+// SoftMacro Class
+// Create a SoftMacro with specified size
+// In this case, we think the cluster is a macro cluster with only one macro
+// SoftMacro : Hard Macro (or pin access blockage)
 SoftMacro::SoftMacro(float width, float height, const std::string& name)
 {
   name_ = name;
@@ -947,7 +956,7 @@ SoftMacro::SoftMacro(float width, float height, const std::string& name)
   cluster_ = nullptr;
 }
 
-// Represent an IO cluster or fixed terminal.
+// Create a SoftMacro representing a cluster of unplaced IOs or fixed terminals
 SoftMacro::SoftMacro(const std::pair<float, float>& location,
                      const std::string& name,
                      float width,
@@ -968,6 +977,13 @@ SoftMacro::SoftMacro(const std::pair<float, float>& location,
 
   cluster_ = cluster;
   fixed_ = true;
+}
+
+// create a SoftMacro from a cluster
+SoftMacro::SoftMacro(Cluster* cluster)
+{
+  name_ = cluster->getName();
+  cluster_ = cluster;
 }
 
 // name
@@ -1277,8 +1293,6 @@ bool SoftMacro::isMixedCluster() const
   return (cluster_->getClusterType() == MixedCluster);
 }
 
-// Cluster support to identify if a fixed terminal correponds
-// to a cluster of unplaced IO pins when running SoftMacro SA.
 bool SoftMacro::isClusterOfUnplacedIOPins() const
 {
   if (!cluster_) {
@@ -1286,17 +1300,6 @@ bool SoftMacro::isClusterOfUnplacedIOPins() const
   }
 
   return cluster_->isClusterOfUnplacedIOPins();
-}
-
-// Cluster support to identify if a fixed terminal correponds
-// to the cluster of unconstrained IO pins when running SoftMacro SA.
-bool SoftMacro::isClusterOfUnconstrainedIOPins() const
-{
-  if (!cluster_) {
-    return false;
-  }
-
-  return cluster_->isClusterOfUnconstrainedIOPins();
 }
 
 void SoftMacro::setLocationF(float x, float y)

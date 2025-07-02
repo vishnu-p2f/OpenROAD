@@ -54,20 +54,29 @@ Instance::Instance() = default;
 
 // for movable real instances
 Instance::Instance(odb::dbInst* inst,
-                   PlacerBaseCommon* pbc,
+                   int padLeft,
+                   int padRight,
+                   int site_height,
                    utl::Logger* logger)
     : Instance()
 {
   inst_ = inst;
-  copyDbLocation(pbc);
+  dbBox* bbox = inst->getBBox();
+  inst->getLocation(lx_, ly_);
+  ux_ = lx_ + bbox->getDX();
+  uy_ = ly_ + bbox->getDY();
+
+  if (isPlaceInstance()) {
+    lx_ -= padLeft;
+    ux_ += padRight;
+  }
 
   // Masters more than row_limit rows tall are treated as macros
   constexpr int row_limit = 6;
-  dbBox* bbox = inst->getBBox();
 
   if (inst->getMaster()->getType().isBlock()) {
     is_macro_ = true;
-  } else if (bbox->getDY() > row_limit * pbc->siteSizeY()) {
+  } else if (bbox->getDY() > 6 * site_height) {
     is_macro_ = true;
     logger->warn(GPL,
                  134,
@@ -94,19 +103,6 @@ Instance::~Instance()
   lx_ = ly_ = 0;
   ux_ = uy_ = 0;
   pins_.clear();
-}
-
-void Instance::copyDbLocation(PlacerBaseCommon* pbc)
-{
-  dbBox* bbox = inst_->getBBox();
-  inst_->getLocation(lx_, ly_);
-  ux_ = lx_ + bbox->getDX();
-  uy_ = ly_ + bbox->getDY();
-
-  if (isPlaceInstance()) {
-    lx_ -= pbc->padLeft() * pbc->siteSizeX();
-    ux_ += pbc->padRight() * pbc->siteSizeX();
-  }
 }
 
 bool Instance::isFixed() const
@@ -299,14 +295,14 @@ Pin::Pin()
 Pin::Pin(odb::dbITerm* iTerm) : Pin()
 {
   setITerm();
-  term_ = iTerm;
+  term_ = (void*) iTerm;
   updateCoordi(iTerm);
 }
 
 Pin::Pin(odb::dbBTerm* bTerm, utl::Logger* logger) : Pin()
 {
   setBTerm();
-  term_ = bTerm;
+  term_ = (void*) bTerm;
   updateCoordi(bTerm, logger);
 }
 
@@ -794,29 +790,19 @@ void PlacerBaseCommon::init()
              block->dbuToMicrons(die_.coreUy()));
 
   // insts fill with real instances
-  dbSet<dbInst> db_insts = block->getInsts();
-  instStor_.reserve(db_insts.size());
+  dbSet<dbInst> insts = block->getInsts();
+  instStor_.reserve(insts.size());
   insts_.reserve(instStor_.size());
-  for (dbInst* db_inst : db_insts) {
-    auto type = db_inst->getMaster()->getType();
+  for (dbInst* inst : insts) {
+    auto type = inst->getMaster()->getType();
     if (!type.isCore() && !type.isBlock()) {
       continue;
     }
-
-    Instance myInst(db_inst, this, log_);
-    odb::dbBox* inst_bbox = db_inst->getBBox();
-    if (inst_bbox->getDY() > die_.coreDy()) {
-      log_->error(GPL,
-                  119,
-                  "instance {} height is larger than core.",
-                  db_inst->getName());
-    }
-    if (inst_bbox->getDX() > die_.coreDx()) {
-      log_->error(GPL,
-                  120,
-                  "instance {} width is larger than core.",
-                  db_inst->getName());
-    }
+    Instance myInst(inst,
+                    pbVars_.padLeft * siteSizeX_,
+                    pbVars_.padRight * siteSizeX_,
+                    siteSizeY_,
+                    log_);
 
     // Fixed instaces need to be snapped outwards to the nearest site
     // boundary.  A partially overlapped site is unusable and this
@@ -829,6 +815,16 @@ void PlacerBaseCommon::init()
 
     if (myInst.dy() > siteSizeY_ * 6) {
       macroInstsArea_ += myInst.area();
+    }
+
+    dbBox* bbox = inst->getBBox();
+    if (bbox->getDY() > die_.coreDy()) {
+      log_->error(
+          GPL, 119, "instance {} height is larger than core.", inst->getName());
+    }
+    if (bbox->getDX() > die_.coreDx()) {
+      log_->error(
+          GPL, 120, "instance {} width is larger than core.", inst->getName());
     }
   }
 
@@ -877,9 +873,9 @@ void PlacerBaseCommon::init()
   pins_.reserve(pinStor_.size());
   for (auto& pin : pinStor_) {
     if (pin.isITerm()) {
-      pinMap_[pin.dbITerm()] = &pin;
+      pinMap_[(void*) pin.dbITerm()] = &pin;
     } else if (pin.isBTerm()) {
-      pinMap_[pin.dbBTerm()] = &pin;
+      pinMap_[(void*) pin.dbBTerm()] = &pin;
     }
     pins_.push_back(&pin);
   }
@@ -952,13 +948,13 @@ Instance* PlacerBaseCommon::dbToPb(odb::dbInst* inst) const
 
 Pin* PlacerBaseCommon::dbToPb(odb::dbITerm* term) const
 {
-  auto pinPtr = pinMap_.find(term);
+  auto pinPtr = pinMap_.find((void*) term);
   return (pinPtr == pinMap_.end()) ? nullptr : pinPtr->second;
 }
 
 Pin* PlacerBaseCommon::dbToPb(odb::dbBTerm* term) const
 {
-  auto pinPtr = pinMap_.find(term);
+  auto pinPtr = pinMap_.find((void*) term);
   return (pinPtr == pinMap_.end()) ? nullptr : pinPtr->second;
 }
 
@@ -1159,6 +1155,23 @@ void PlacerBase::initInstsForUnusableSites()
     }
   }
 
+  // fill fixed instances' bbox
+  for (auto& inst : pbCommon_->insts()) {
+    if (!inst->isFixed()) {
+      continue;
+    }
+    std::pair<int, int> pairX = getMinMaxIdx(
+        inst->lx(), inst->ux(), die_.coreLx(), siteSizeX_, 0, siteCountX);
+    std::pair<int, int> pairY = getMinMaxIdx(
+        inst->ly(), inst->uy(), die_.coreLy(), siteSizeY_, 0, siteCountY);
+
+    for (int i = pairX.first; i < pairX.second; i++) {
+      for (int j = pairY.first; j < pairY.second; j++) {
+        siteGrid[j * siteCountX + i] = FixedInst;
+      }
+    }
+  }
+
   // In the case of top level power domain i.e no group,
   // mark all other power domains as empty
   if (group_ == nullptr) {
@@ -1187,26 +1200,6 @@ void PlacerBase::initInstsForUnusableSites()
             }
           }
         }
-      }
-    }
-  }
-
-  // fill fixed instances' bbox
-  for (auto& inst : pbCommon_->insts()) {
-    if (!inst->isFixed()) {
-      continue;
-    }
-    if (inst->dbInst() && inst->dbInst()->getGroup() != group_) {
-      continue;
-    }
-    std::pair<int, int> pairX = getMinMaxIdx(
-        inst->lx(), inst->ux(), die_.coreLx(), siteSizeX_, 0, siteCountX);
-    std::pair<int, int> pairY = getMinMaxIdx(
-        inst->ly(), inst->uy(), die_.coreLy(), siteSizeY_, 0, siteCountY);
-
-    for (int i = pairX.first; i < pairX.second; i++) {
-      for (int j = pairY.first; j < pairY.second; j++) {
-        siteGrid[j * siteCountX + i] = FixedInst;
       }
     }
   }

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // Copyright (c) 2025-2025, The OpenROAD Authors
 
-// Parser for LEF58 edge type rules that define edge properties for macro cells
 #include <functional>
 #include <iostream>
 #include <string>
@@ -9,14 +8,18 @@
 
 #include "boostParser.h"
 #include "lefMacroPropParser.h"
-#include "parserUtils.h"
 
 namespace odb {
-
-// Parse input string containing edge type rules for a macro
 void lefMacroEdgeTypeParser::parse(const std::string& s)
 {
-  processRules(s, [this](const std::string& rule) {
+  std::vector<std::string> rules;
+  boost::split(rules, s, boost::is_any_of(";"));
+  for (auto& rule : rules) {
+    boost::algorithm::trim(rule);
+    if (rule.empty()) {
+      continue;
+    }
+    rule += " ; ";
     if (!parseSubRule(rule)) {
       lefin_->warning(299,
                       "parse mismatch in layer property LEF58_EDGETYPE for "
@@ -24,10 +27,9 @@ void lefMacroEdgeTypeParser::parse(const std::string& s)
                       master_->getName(),
                       rule);
     }
-  });
+  }
 }
 
-// Set range parameters for the edge type (converts to database units)
 void lefMacroEdgeTypeParser::setRange(
     boost::fusion::vector<double, double>& params)
 {
@@ -37,13 +39,10 @@ void lefMacroEdgeTypeParser::setRange(
   edge_type_->setRangeEnd(lefin_->dbdist(end));
 }
 
-// Parse a single edge type rule
-// Format: EDGETYPE (RIGHT|LEFT|TOP|BOTTOM) type [CELLROW row] [HALFROW row]
-// [RANGE begin end] ;
-bool lefMacroEdgeTypeParser::parseSubRule(const std::string& s)
+bool lefMacroEdgeTypeParser::parseSubRule(std::string s)
 {
   edge_type_ = dbMasterEdgeType::create(master_);
-  qi::rule<std::string::const_iterator, space_type> EDGE_DIR
+  qi::rule<std::string::iterator, space_type> EDGE_DIR
       = (lit("RIGHT")[boost::bind(&dbMasterEdgeType::setEdgeDir,
                                   edge_type_,
                                   dbMasterEdgeType::RIGHT)]
@@ -54,16 +53,16 @@ bool lefMacroEdgeTypeParser::parseSubRule(const std::string& s)
          | lit("BOTTOM")[boost::bind(&dbMasterEdgeType::setEdgeDir,
                                      edge_type_,
                                      dbMasterEdgeType::BOTTOM)]);
-  qi::rule<std::string::const_iterator, space_type> CELLROW
+  qi::rule<std::string::iterator, space_type> CELLROW
       = (lit("CELLROW")
          >> int_[boost::bind(&dbMasterEdgeType::setCellRow, edge_type_, _1)]);
-  qi::rule<std::string::const_iterator, space_type> HALFROW
+  qi::rule<std::string::iterator, space_type> HALFROW
       = (lit("HALFROW")
          >> int_[boost::bind(&dbMasterEdgeType::setHalfRow, edge_type_, _1)]);
-  qi::rule<std::string::const_iterator, space_type> RANGE
+  qi::rule<std::string::iterator, space_type> RANGE
       = (lit("RANGE") >> double_
          >> double_)[boost::bind(&lefMacroEdgeTypeParser::setRange, this, _1)];
-  qi::rule<std::string::const_iterator, space_type> LEF58_EDGETYPE
+  qi::rule<std::string::iterator, space_type> LEF58_EDGETYPE
       = (lit("EDGETYPE") >> EDGE_DIR
          >> _string[boost::bind(&dbMasterEdgeType::setEdgeType, edge_type_, _1)]
          >> -(CELLROW | HALFROW | RANGE) >> lit(";"));

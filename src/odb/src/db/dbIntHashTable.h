@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "dbCore.h"
 #include "dbPagedVector.h"
 #include "odb/odb.h"
 
@@ -11,6 +10,8 @@ namespace odb {
 
 class dbIStream;
 class dbOStream;
+template <class T>
+class dbTable;
 
 //////////////////////////////////////////////////////////
 ///

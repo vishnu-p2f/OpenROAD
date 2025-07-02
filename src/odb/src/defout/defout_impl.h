@@ -5,7 +5,6 @@
 
 #include <list>
 #include <map>
-#include <ostream>
 #include <string>
 
 #include "odb/db.h"
@@ -40,7 +39,7 @@ class defout_impl
   };
 
   double _dist_factor;
-  std::ostream* _out;
+  FILE* _out;
   bool _use_net_inst_ids;
   bool _use_master_ids;
   bool _use_alias;
@@ -117,7 +116,6 @@ class defout_impl
   void setVersion(int v) { _version = v; }
 
   bool writeBlock(dbBlock* block, const char* def_file);
-  bool writeBlock(dbBlock* block, std::ostream& stream);
 };
 
 }  // namespace odb

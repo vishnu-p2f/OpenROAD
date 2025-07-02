@@ -13,7 +13,6 @@ or_integration_tests(
     ta_pin_aligned
     top_level_term
     top_level_term2
-    via_access_layer
   PASSFAIL_TESTS
     gc_test
 )

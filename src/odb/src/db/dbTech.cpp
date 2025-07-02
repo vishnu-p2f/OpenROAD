@@ -217,38 +217,64 @@ _dbTech::_dbTech(_dbDatabase* db)
   _via_tbl = new dbTable<_dbTechVia>(
       db, this, (GetObjTbl_t) &_dbTech::getObjectTable, dbTechViaObj);
 
-  _non_default_rule_tbl = new dbTable<_dbTechNonDefaultRule, 4>(
+  _non_default_rule_tbl = new dbTable<_dbTechNonDefaultRule>(
       db,
       this,
       (GetObjTbl_t) &_dbTech::getObjectTable,
-      dbTechNonDefaultRuleObj);
+      dbTechNonDefaultRuleObj,
+      4,
+      2);
 
-  _layer_rule_tbl = new dbTable<_dbTechLayerRule, 4>(
-      db, this, (GetObjTbl_t) &_dbTech::getObjectTable, dbTechLayerRuleObj);
+  _layer_rule_tbl
+      = new dbTable<_dbTechLayerRule>(db,
+                                      this,
+                                      (GetObjTbl_t) &_dbTech::getObjectTable,
+                                      dbTechLayerRuleObj,
+                                      4,
+                                      2);
 
   _box_tbl = new dbTable<_dbBox>(
       db, this, (GetObjTbl_t) &_dbTech::getObjectTable, dbBoxObj);
 
-  _samenet_rule_tbl = new dbTable<_dbTechSameNetRule, 16>(
-      db, this, (GetObjTbl_t) &_dbTech::getObjectTable, dbTechSameNetRuleObj);
+  _samenet_rule_tbl
+      = new dbTable<_dbTechSameNetRule>(db,
+                                        this,
+                                        (GetObjTbl_t) &_dbTech::getObjectTable,
+                                        dbTechSameNetRuleObj,
+                                        16,
+                                        4);
 
-  _antenna_rule_tbl = new dbTable<_dbTechLayerAntennaRule, 16>(
+  _antenna_rule_tbl = new dbTable<_dbTechLayerAntennaRule>(
       db,
       this,
       (GetObjTbl_t) &_dbTech::getObjectTable,
-      dbTechLayerAntennaRuleObj);
+      dbTechLayerAntennaRuleObj,
+      16,
+      4);
 
-  _via_rule_tbl = new dbTable<_dbTechViaRule, 16>(
-      db, this, (GetObjTbl_t) &_dbTech::getObjectTable, dbTechViaRuleObj);
+  _via_rule_tbl
+      = new dbTable<_dbTechViaRule>(db,
+                                    this,
+                                    (GetObjTbl_t) &_dbTech::getObjectTable,
+                                    dbTechViaRuleObj,
+                                    16,
+                                    4);
 
-  _via_layer_rule_tbl = new dbTable<_dbTechViaLayerRule, 16>(
-      db, this, (GetObjTbl_t) &_dbTech::getObjectTable, dbTechViaLayerRuleObj);
+  _via_layer_rule_tbl
+      = new dbTable<_dbTechViaLayerRule>(db,
+                                         this,
+                                         (GetObjTbl_t) &_dbTech::getObjectTable,
+                                         dbTechViaLayerRuleObj,
+                                         16,
+                                         4);
 
-  _via_generate_rule_tbl = new dbTable<_dbTechViaGenerateRule, 16>(
+  _via_generate_rule_tbl = new dbTable<_dbTechViaGenerateRule>(
       db,
       this,
       (GetObjTbl_t) &_dbTech::getObjectTable,
-      dbTechViaGenerateRuleObj);
+      dbTechViaGenerateRuleObj,
+      16,
+      4);
 
   _prop_tbl = new dbTable<_dbProperty>(
       db, this, (GetObjTbl_t) &_dbTech::getObjectTable, dbPropertyObj);
@@ -266,7 +292,7 @@ _dbTech::_dbTech(_dbDatabase* db)
 
   _layer_itr = new dbTechLayerItr(_layer_tbl);
 
-  _box_itr = new dbBoxItr(_box_tbl, (dbTable<_dbPolygon>*) nullptr, false);
+  _box_itr = new dbBoxItr(_box_tbl, nullptr, false);
 
   _prop_itr = new dbPropertyItr(_prop_tbl);
 }

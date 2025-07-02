@@ -102,8 +102,6 @@ class GuiPainter : public Painter
     painter_->setBrush(QBrush(qcolor, brush_pattern));
   }
 
-  void setFont(const Font& font) override;
-
   void saveState() override { painter_->save(); }
 
   void restoreState() override { painter_->restore(); }

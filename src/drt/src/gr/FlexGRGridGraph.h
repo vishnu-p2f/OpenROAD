@@ -306,16 +306,12 @@ class FlexGRGridGraph
       auto idx = getIdx(x, y, z);
       switch (dir) {
         case frDirEnum::E:
-          setBit(idx, 3);
-          break;
+          return setBit(idx, 3);
         case frDirEnum::N:
-          setBit(idx, 4);
-          break;
+          return setBit(idx, 4);
         case frDirEnum::U:
-          setBit(idx, 5);
-          break;
-        default:
-          break;
+          return setBit(idx, 5);
+        default:;
       }
     }
   }
@@ -327,16 +323,12 @@ class FlexGRGridGraph
       auto idx = getIdx(x, y, z);
       switch (dir) {
         case frDirEnum::E:
-          resetBit(idx, 3);
-          break;
+          return resetBit(idx, 3);
         case frDirEnum::N:
-          resetBit(idx, 4);
-          break;
+          return resetBit(idx, 4);
         case frDirEnum::U:
-          resetBit(idx, 5);
-          break;
-        default:
-          break;
+          return resetBit(idx, 5);
+        default:;
       }
     }
   }
@@ -378,14 +370,11 @@ class FlexGRGridGraph
       auto idx = getIdx(x, y, z);
       switch (dir) {
         case frDirEnum::E:
-          setBits(idx, 24, GRSUPPLYSIZE, supplyIn);
-          break;
+          return setBits(idx, 24, GRSUPPLYSIZE, supplyIn);
         case frDirEnum::N:
-          setBits(idx, 16, GRSUPPLYSIZE, supplyIn);
-          break;
+          return setBits(idx, 16, GRSUPPLYSIZE, supplyIn);
         default:
           std::cout << "Error: unexpected dir in FlexGRGridGraph::setSupply\n";
-          break;
       }
     }
   }
@@ -398,14 +387,13 @@ class FlexGRGridGraph
       auto idx = getIdx(x, y, z);
       switch (dir) {
         case frDirEnum::E:
-          setBits(idx, 48 + GRFRACSIZE, GRDEMANDSIZE - GRFRACSIZE, demandIn);
-          break;
+          return setBits(
+              idx, 48 + GRFRACSIZE, GRDEMANDSIZE - GRFRACSIZE, demandIn);
         case frDirEnum::N:
-          setBits(idx, 32 + GRFRACSIZE, GRDEMANDSIZE - GRFRACSIZE, demandIn);
-          break;
+          return setBits(
+              idx, 32 + GRFRACSIZE, GRDEMANDSIZE - GRFRACSIZE, demandIn);
         default:
           std::cout << "Error: unexpected dir in FlexGRGridGraph::setDemand\n";
-          break;
       }
     }
   }
@@ -422,15 +410,12 @@ class FlexGRGridGraph
       auto idx = getIdx(x, y, z);
       switch (dir) {
         case frDirEnum::E:
-          setBits(idx, 48, GRDEMANDSIZE, rawDemandIn);
-          break;
+          return setBits(idx, 48, GRDEMANDSIZE, rawDemandIn);
         case frDirEnum::N:
-          setBits(idx, 32, GRDEMANDSIZE, rawDemandIn);
-          break;
+          return setBits(idx, 32, GRDEMANDSIZE, rawDemandIn);
         default:
           std::cout
               << "Error: unexpected dir in FlexGRGridGraph::setRawDemand\n";
-          break;
       }
     }
   }

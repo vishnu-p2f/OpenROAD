@@ -1,5 +1,6 @@
 {
     "name": "dbTechLayerMaxSpacingRule",
+    "type": "dbObject",
     "fields": [
       {
         "type": "std::string",
@@ -15,3 +16,4 @@
       "dbTechLayer.h"
     ]
   }
+  

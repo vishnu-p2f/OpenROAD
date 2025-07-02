@@ -26,9 +26,9 @@ class dbSta;
 class Pin;
 }  // namespace sta
 
-namespace rmp {
-
 using utl::Logger;
+
+namespace rmp {
 
 class Blif
 {

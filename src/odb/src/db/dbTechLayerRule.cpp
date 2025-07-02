@@ -113,11 +113,12 @@ bool _dbTechLayerRule::operator==(const _dbTechLayerRule& rhs) const
 
 _dbTech* _dbTechLayerRule::getTech()
 {
-  if (_flags._block_rule == 0) {
-    return (_dbTech*) getOwner();
-  }
+#if 0  // dead code generates warnings -cherry
+    if (_flags._block_rule == 0)
+        (_dbTech *) getOwner();
+#endif
 
-  return (_dbTech*) getBlock()->getTech();
+  return (_dbTech*) getDb()->getTech();
 }
 
 _dbBlock* _dbTechLayerRule::getBlock()
@@ -240,26 +241,26 @@ dbTechLayerRule* dbTechLayerRule::create(dbTechNonDefaultRule* rule_,
 {
   _dbTechNonDefaultRule* rule = (_dbTechNonDefaultRule*) rule_;
   _dbTechLayer* layer = (_dbTechLayer*) layer_;
-
-  auto make_layer = [layer, rule](auto& tbl) -> dbTechLayerRule* {
-    if (rule->_layer_rules[layer->_number] != 0) {
-      return nullptr;
-    }
-
-    _dbTechLayerRule* layer_rule = tbl->create();
-    layer_rule->_non_default_rule = rule->getOID();
-    layer_rule->_layer = layer->getOID();
-    layer_rule->_flags._block_rule = rule->_flags._block_rule;
-    rule->_layer_rules[layer->_number] = layer_rule->getOID();
-    return (dbTechLayerRule*) layer_rule;
-  };
+  dbTable<_dbTechLayerRule>* layer_rule_tbl = nullptr;
 
   if (rule->_flags._block_rule) {
     _dbBlock* block = rule->getBlock();
-    return make_layer(block->_layer_rule_tbl);
+    layer_rule_tbl = block->_layer_rule_tbl;
+  } else {
+    _dbTech* tech = rule->getTech();
+    layer_rule_tbl = tech->_layer_rule_tbl;
   }
-  _dbTech* tech = rule->getTech();
-  return make_layer(tech->_layer_rule_tbl);
+
+  if (rule->_layer_rules[layer->_number] != 0) {
+    return nullptr;
+  }
+
+  _dbTechLayerRule* layer_rule = layer_rule_tbl->create();
+  layer_rule->_non_default_rule = rule->getOID();
+  layer_rule->_layer = layer->getOID();
+  layer_rule->_flags._block_rule = rule->_flags._block_rule;
+  rule->_layer_rules[layer->_number] = layer_rule->getOID();
+  return (dbTechLayerRule*) layer_rule;
 }
 
 dbTechLayerRule* dbTechLayerRule::getTechLayerRule(dbTech* tech_, uint dbid_)

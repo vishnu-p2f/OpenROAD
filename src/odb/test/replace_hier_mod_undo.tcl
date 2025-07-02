@@ -1,4 +1,4 @@
-# Try to undo module swap
+# Try to undo module swap 
 
 source "helpers.tcl"
 define_corners fast slow
@@ -11,8 +11,7 @@ link_design top -hier
 create_clock -period 0.3 clk
 
 #place the design
-initialize_floorplan -die_area "0 0 40 1200" -core_area "0 0 40 1200" \
-  -site FreePDK45_38x28_10R_NP_162NW_34O
+initialize_floorplan -die_area "0 0 40 1200"   -core_area "0 0 40 1200" -site FreePDK45_38x28_10R_NP_162NW_34O
 global_placement -skip_nesterov_place
 detailed_placement
 
@@ -51,3 +50,5 @@ odb::dbDatabase_undoEco $block
 report_cell_usage bc1
 estimate_parasitics -placement
 report_checks -through u1z -through r2/D
+
+

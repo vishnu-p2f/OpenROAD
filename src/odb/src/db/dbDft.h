@@ -13,6 +13,8 @@ class dbIStream;
 class dbOStream;
 class _dbDatabase;
 class _dbScanPin;
+template <class T>
+class dbTable;
 class _dbScanChain;
 
 class _dbDft : public _dbObject

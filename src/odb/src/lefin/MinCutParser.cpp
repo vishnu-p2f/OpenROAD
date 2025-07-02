@@ -10,7 +10,6 @@
 #include "lefLayerPropParser.h"
 #include "odb/db.h"
 #include "odb/lefin.h"
-#include "parserUtils.h"
 
 using namespace odb;
 
@@ -57,7 +56,14 @@ void MinCutParser::setAreaWithin(double within)
 
 void MinCutParser::parse(const std::string& s)
 {
-  processRules(s, [this](const std::string& rule) {
+  std::vector<std::string> rules;
+  boost::split(rules, s, boost::is_any_of(";"));
+  for (auto& rule : rules) {
+    boost::algorithm::trim(rule);
+    if (rule.empty()) {
+      continue;
+    }
+    rule += " ; ";
     if (!parseSubRule(rule)) {
       lefin_->warning(299,
                       "parse mismatch in layer property LEF58_MINIMUMCUT for "
@@ -65,28 +71,28 @@ void MinCutParser::parse(const std::string& s)
                       layer_->getName(),
                       rule);
     }
-  });
+  }
 }
 
-bool MinCutParser::parseSubRule(const std::string& s)
+bool MinCutParser::parseSubRule(std::string s)
 {
   rule_ = dbTechLayerMinCutRule::create(layer_);
-  qi::rule<std::string::const_iterator, space_type> CUTCLASS
+  qi::rule<std::string::iterator, space_type> CUTCLASS
       = (lit("CUTCLASS") >> _string
          >> int_)[boost::bind(&MinCutParser::addCutClass, this, _1)];
-  qi::rule<std::string::const_iterator, space_type> WITHIN
+  qi::rule<std::string::iterator, space_type> WITHIN
       = (lit("WITHIN")
          >> double_)[boost::bind(&MinCutParser::setWithinCutDist, this, _1)];
-  qi::rule<std::string::const_iterator, space_type> LENGTH
+  qi::rule<std::string::iterator, space_type> LENGTH
       = (lit("LENGTH")
          >> double_[boost::bind(&MinCutParser::setLength, this, _1)]
          >> lit("WITHIN")
          >> double_[boost::bind(&MinCutParser::setLengthWithin, this, _1)]);
-  qi::rule<std::string::const_iterator, space_type> AREA
+  qi::rule<std::string::iterator, space_type> AREA
       = (lit("AREA") >> double_[boost::bind(&MinCutParser::setArea, this, _1)]
          >> -(lit("WITHIN")
               >> double_[boost::bind(&MinCutParser::setAreaWithin, this, _1)]));
-  qi::rule<std::string::const_iterator, space_type> LEF58_MINCUT
+  qi::rule<std::string::iterator, space_type> LEF58_MINCUT
       = (lit("MINIMUMCUT")
          >> (int_[boost::bind(&dbTechLayerMinCutRule::setNumCuts, rule_, _1)]
              | +CUTCLASS)

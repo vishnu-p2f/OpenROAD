@@ -58,6 +58,8 @@ class definComponent : public definBase
   definComponent();
   ~definComponent() override;
 
+  void init() override;
+
   void setLibs(std::vector<dbLib*>& libs) { _libs = libs; }
 };
 

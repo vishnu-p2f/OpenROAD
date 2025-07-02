@@ -154,7 +154,7 @@ void dbTransform::invert(dbTransform& result) const
       orient = dbOrientType::MXR90;
       break;
     default:
-      throw std::runtime_error("Unknown orientation");
+      throw ZException("Unknown orientation");
   }
 
   result._offset = offset;

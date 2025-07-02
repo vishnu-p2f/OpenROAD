@@ -47,10 +47,6 @@ namespace dpl {
 class Opendp;
 }
 
-namespace exa {
-class Example;
-}
-
 namespace mpl {
 class MacroPlacer;
 }
@@ -160,7 +156,6 @@ class Design
   cts::TritonCTS* getTritonCts();
   dft::Dft* getDft();
   dpl::Opendp* getOpendp();
-  exa::Example* getExample();
   drt::TritonRoute* getTritonRoute();
   fin::Finale* getFinale();
   gpl::Replace* getReplace();

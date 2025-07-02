@@ -879,7 +879,8 @@ void io::Parser::updateNetRouting(frNet* netIn, odb::dbNet* net)
             p = {beginX, beginY};
           }
           auto viaDef = getTech()->name2via_[viaName];
-          auto tmpP = std::make_unique<frVia>(viaDef, p);
+          auto tmpP = std::make_unique<frVia>(viaDef);
+          tmpP->setOrigin(p);
           tmpP->addToNet(netIn);
           netIn->addVia(std::move(tmpP));
         }
@@ -1740,16 +1741,6 @@ void io::Parser::setCutLayerProperties(odb::dbTechLayer* layer,
         if (rule->getSecondLayer() == nullptr) {
           continue;
         }
-        if (rule->getSecondLayer()->getType()
-                == odb::dbTechLayerType::MASTERSLICE
-            && rule->getSecondLayer() != masterSliceLayer_) {
-          logger_->warn(DRT,
-                        240,
-                        "Ignoring cut spacing rule for layer {} with layer {}",
-                        layer->getName(),
-                        rule->getSecondLayer()->getName());
-          continue;
-        }
         auto con = std::make_unique<frLef58CutSpacingConstraint>();
         con->setCutSpacing(rule->getCutSpacing());
         con->setCenterToCenter(rule->isCenterToCenter());
@@ -2477,18 +2468,9 @@ void io::Parser::addCutLayer(odb::dbTechLayer* layer)
     bool exceptSamePGNet = rule->getSameNetPgOnly();
     bool parallelOverlap = rule->getCutParallelOverlap();
     odb::dbTechLayer* outly;
-    frString secondLayerName;
+    frString secondLayerName = std::string("");
     if (rule->getCutLayer4Spacing(outly)) {
-      secondLayerName = outly->getName();
-      if (outly->getType() == odb::dbTechLayerType::MASTERSLICE
-          && outly != masterSliceLayer_) {
-        logger_->warn(DRT,
-                      241,
-                      "Ignoring cut spacing rule for layer {} with layer {}",
-                      layer->getName(),
-                      secondLayerName);
-        continue;
-      }
+      secondLayerName = std::string(outly->getName());
     }
     frUInt4 _adjacentCuts;
     frUInt4 within;
@@ -3060,15 +3042,6 @@ void io::Parser::readTechAndLibs(odb::dbDatabase* db)
                     273,
                     "topRoutingLayer {} not found.",
                     router_cfg_->TOP_ROUTING_LAYER_NAME);
-    }
-  } else {
-    for (frLayerNum layer_num = fr_tech->getTopLayerNum();
-         layer_num >= fr_tech->getBottomLayerNum();
-         layer_num--) {
-      if (fr_tech->getLayer(layer_num)->getType() == dbTechLayerType::ROUTING) {
-        router_cfg_->TOP_ROUTING_LAYER = layer_num;
-        break;
-      }
     }
   }
 
@@ -3992,8 +3965,7 @@ void io::TopLayerBTermHandler::stackVias(odb::dbBTerm* bterm,
   std::map<int, odb::dbTechVia*> default_vias;
 
   for (auto layer : tech->getLayers()) {
-    if (layer->getType() == odb::dbTechLayerType::CUT
-        && layer->getLef58Type() != odb::dbTechLayer::LEF58_TYPE::MIMCAP) {
+    if (layer->getType() == odb::dbTechLayerType::CUT) {
       frLayer* fr_layer = fr_tech->getLayer(layer->getName());
       const frViaDef* via_def = fr_layer->getDefaultViaDef();
       if (via_def == nullptr) {

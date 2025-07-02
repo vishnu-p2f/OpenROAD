@@ -39,7 +39,6 @@ FlexGCWorker::Impl::Impl(frTechObject* techIn,
       rq_(gcWorkerIn),
       printMarker_(false),
       targetNet_(nullptr),
-      targetDRNet_(nullptr),
       minLayerNum_(std::numeric_limits<frLayerNum>::min()),
       maxLayerNum_(std::numeric_limits<frLayerNum>::max()),
       ignoreDB_(false),
@@ -132,16 +131,6 @@ bool FlexGCWorker::setTargetNet(frBlockObject* in)
   }
   return false;
 }
-
-bool FlexGCWorker::setTargetNet(drNet* in)
-{
-  bool found = setTargetNet(in->getFrNet());
-  if (found) {
-    impl_->targetDRNet_ = in;
-  }
-  return found;
-}
-
 gcNet* FlexGCWorker::getTargetNet()
 {
   return impl_->targetNet_;
@@ -154,7 +143,6 @@ void FlexGCWorker::setEnableSurgicalFix(bool in)
 void FlexGCWorker::resetTargetNet()
 {
   impl_->targetNet_ = nullptr;
-  impl_->targetDRNet_ = nullptr;
 }
 
 void FlexGCWorker::addTargetObj(frBlockObject* in)

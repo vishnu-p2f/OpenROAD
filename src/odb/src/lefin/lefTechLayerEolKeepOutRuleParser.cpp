@@ -9,7 +9,6 @@
 #include "lefLayerPropParser.h"
 #include "odb/db.h"
 #include "odb/lefin.h"
-#include "parserUtils.h"
 
 namespace odb {
 
@@ -22,7 +21,14 @@ lefTechLayerEolKeepOutRuleParser::lefTechLayerEolKeepOutRuleParser(
 void lefTechLayerEolKeepOutRuleParser::parse(const std::string& s,
                                              odb::dbTechLayer* layer)
 {
-  processRules(s, [this, layer](const std::string& rule) {
+  std::vector<std::string> rules;
+  boost::split(rules, s, boost::is_any_of(";"));
+  for (auto& rule : rules) {
+    boost::algorithm::trim(rule);
+    if (rule.empty()) {
+      continue;
+    }
+    rule += " ; ";
     if (!parseSubRule(rule, layer)) {
       lefin_->warning(280,
                       "parse mismatch in layer property LEF58_EOLKEEPOUT for "
@@ -30,7 +36,7 @@ void lefTechLayerEolKeepOutRuleParser::parse(const std::string& s,
                       layer->getName(),
                       rule);
     }
-  });
+  }
 }
 void lefTechLayerEolKeepOutRuleParser::setClass(
     std::string val,
@@ -57,22 +63,22 @@ void lefTechLayerEolKeepOutRuleParser::setInt(
 {
   (rule->*func)(lefin_->dbdist(val));
 }
-bool lefTechLayerEolKeepOutRuleParser::parseSubRule(const std::string& s,
+bool lefTechLayerEolKeepOutRuleParser::parseSubRule(std::string s,
                                                     odb::dbTechLayer* layer)
 {
   odb::dbTechLayerEolKeepOutRule* rule
       = odb::dbTechLayerEolKeepOutRule::create(layer);
-  qi::rule<std::string::const_iterator, space_type> EXCEPTWITHIN
+  qi::rule<std::string::iterator, space_type> EXCEPTWITHIN
       = (lit("EXCEPTWITHIN") >> double_ >> double_)[boost::bind(
           &lefTechLayerEolKeepOutRuleParser::setExceptWithin, this, _1, rule)];
-  qi::rule<std::string::const_iterator, space_type> CLASS
+  qi::rule<std::string::iterator, space_type> CLASS
       = (lit("CLASS")
          >> _string[boost::bind(&lefTechLayerEolKeepOutRuleParser::setClass,
                                 this,
                                 _1,
                                 rule,
                                 layer)]);
-  qi::rule<std::string::const_iterator, space_type> EOLKEEPOUT
+  qi::rule<std::string::iterator, space_type> EOLKEEPOUT
       = (lit("EOLKEEPOUT")
          >> double_[boost::bind(&lefTechLayerEolKeepOutRuleParser::setInt,
                                 this,

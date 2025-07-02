@@ -11,6 +11,8 @@
 
 namespace odb {
 
+template <class T>
+class dbTable;
 class _dbITerm;
 class _dbBTerm;
 class _dbWire;

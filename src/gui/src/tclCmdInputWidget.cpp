@@ -568,7 +568,7 @@ void TclCmdInputWidget::insertCompletion(const QString& text)
   setTextCursor(cursor);
 }
 
-QString TclCmdInputWidget::wordUnderCursor()
+const QString TclCmdInputWidget::wordUnderCursor()
 {
   // get line
   QTextCursor cursor = textCursor();

@@ -303,7 +303,6 @@ class Polygon
 {
  public:
   Polygon() = default;
-  Polygon& operator=(const Polygon&) = default;
   Polygon(const Polygon& r) = default;
   Polygon(const std::vector<Point>& points);
   Polygon(const Rect& rect);
@@ -356,9 +355,6 @@ class Line
   std::vector<Point> getPoints() const;
   Point pt0() const;
   Point pt1() const;
-
-  void addX(int value);
-  void addY(int value);
 
   friend dbIStream& operator>>(dbIStream& stream, Line& l);
   friend dbOStream& operator<<(dbOStream& stream, const Line& l);
@@ -990,18 +986,6 @@ inline Point Line::pt0() const
 inline Point Line::pt1() const
 {
   return pt1_;
-}
-
-inline void Line::addX(int value)
-{
-  pt0_.setX(pt0_.getX() + value);
-  pt1_.setX(pt1_.getX() + value);
-}
-
-inline void Line::addY(int value)
-{
-  pt0_.setY(pt0_.getY() + value);
-  pt1_.setY(pt1_.getY() + value);
 }
 
 inline bool Line::operator==(const Line& r) const

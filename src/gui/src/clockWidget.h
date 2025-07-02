@@ -6,7 +6,6 @@
 #include <QComboBox>
 #include <QDockWidget>
 #include <QGraphicsItem>
-#include <QGraphicsObject>
 #include <QGraphicsScene>
 #include <QGraphicsView>
 #include <QMenu>
@@ -68,7 +67,6 @@ class ClockTreeRenderer : public Renderer
   odb::dbITerm* path_to_;
 
   static constexpr int pen_width_ = 2;
-  static constexpr const char* render_label_ = "Clock trees";
 
   void drawTree(Painter& painter,
                 const Descriptor* descriptor,
@@ -119,12 +117,10 @@ class ClockNetGraphicsViewItem : public QGraphicsItem
 
 // Base class for handling drawing of clock tree objects like buffers, roots,
 // and leaves.
-class ClockNodeGraphicsViewItem : public QGraphicsObject
+class ClockNodeGraphicsViewItem : public QGraphicsItem
 {
-  Q_OBJECT
-
  public:
-  ClockNodeGraphicsViewItem(ClockTree* tree, QGraphicsItem* parent = nullptr);
+  ClockNodeGraphicsViewItem(QGraphicsItem* parent = nullptr);
 
   QRectF boundingRect() const override;
   void paint(QPainter* painter,
@@ -137,11 +133,7 @@ class ClockNodeGraphicsViewItem : public QGraphicsObject
   virtual QColor getColor() const = 0;
 
   void setupToolTip();
-  void setExtraToolTip(const QString& tooltip)
-  {
-    extra_tooltip_ = tooltip;
-    setupToolTip();
-  }
+  void setExtraToolTip(const QString& tooltip) { extra_tooltip_ = tooltip; }
 
   qreal getSize() const { return size_; }
   void scaleSize(double scale) { size_ *= scale; }
@@ -168,26 +160,14 @@ class ClockNodeGraphicsViewItem : public QGraphicsObject
   static QString getITermName(odb::dbITerm* term);
   static QString getITermInstName(odb::dbITerm* term);
 
-  QAction* getShowHideSubtreeAction() const { return show_hide_subtree_; }
-  void showHideSubtree();
-  void updateVisibility();
-
- signals:
-  void updateView();
-
  protected:
   void addDelayFin(QPainterPath& path, const qreal delay) const;
-  void contextMenuEvent(QGraphicsSceneContextMenuEvent* event) override;
 
  private:
-  ClockTree* tree_;
   qreal size_;
   QString name_;
   QString inst_name_;
   QString extra_tooltip_;
-
-  QMenu menu_;
-  QAction* show_hide_subtree_;
 };
 
 // Handles drawing the root node for a tree
@@ -195,10 +175,8 @@ class ClockRootNodeGraphicsViewItem : public ClockNodeGraphicsViewItem
 {
  public:
   ClockRootNodeGraphicsViewItem(odb::dbITerm* term,
-                                ClockTree* tree,
                                 QGraphicsItem* parent = nullptr);
   ClockRootNodeGraphicsViewItem(odb::dbBTerm* term,
-                                ClockTree* tree,
                                 QGraphicsItem* parent = nullptr);
 
   QPointF getTopAnchor() const override;
@@ -220,7 +198,6 @@ class ClockBufferNodeGraphicsViewItem : public ClockNodeGraphicsViewItem
   ClockBufferNodeGraphicsViewItem(odb::dbITerm* input_term,
                                   odb::dbITerm* output_term,
                                   qreal delay_y,
-                                  ClockTree* tree,
                                   QGraphicsItem* parent = nullptr);
 
   void setIsInverter(bool inverter) { inverter_ = inverter; }
@@ -236,7 +213,6 @@ class ClockBufferNodeGraphicsViewItem : public ClockNodeGraphicsViewItem
   QPainterPath shape() const override;
 
   static QPolygonF getBufferShape(qreal size);
-  void setDelayY(qreal delay) { delay_y_ = delay; }
 
  private:
   qreal delay_y_;
@@ -317,7 +293,6 @@ class ClockGateNodeGraphicsViewItem : public ClockNodeGraphicsViewItem
   ClockGateNodeGraphicsViewItem(odb::dbITerm* input_term,
                                 odb::dbITerm* output_term,
                                 qreal delay_y,
-                                ClockTree* tree,
                                 QGraphicsItem* parent = nullptr);
 
   void setIsClockGate(bool gate) { is_clock_gate_ = gate; }
@@ -331,7 +306,6 @@ class ClockGateNodeGraphicsViewItem : public ClockNodeGraphicsViewItem
   QPointF getBottomAnchor() const override;
 
   QPainterPath shape() const override;
-  void setDelayY(qreal delay) { delay_y_ = delay; }
 
  private:
   qreal delay_y_;
@@ -380,7 +354,7 @@ class ClockTreeView : public QGraphicsView
 
  public:
   ClockTreeView(std::shared_ptr<ClockTree> tree,
-                STAGuiInterface* sta,
+                const STAGuiInterface* sta,
                 utl::Logger* logger,
                 QWidget* parent = nullptr);
 
@@ -394,13 +368,11 @@ class ClockTreeView : public QGraphicsView
   std::set<ClockNodeGraphicsViewItem*> getNodes(const SelectionSet& selections);
   bool changeSelection(const SelectionSet& selections);
   void fitSelection();
-  void clear();
 
  signals:
   void selected(const Selected& selected);
 
  public slots:
-  void build();
   void setRendererState(RendererState state);
   void fit();
   void save(const QString& path = "");
@@ -423,7 +395,6 @@ class ClockTreeView : public QGraphicsView
  private:
   bool lock_render_{false};
   std::shared_ptr<ClockTree> tree_;
-  STAGuiInterface* sta_;
   std::unique_ptr<ClockTreeRenderer> renderer_;
   RendererState renderer_state_;
   ClockTreeScene* scene_;
@@ -445,7 +416,8 @@ class ClockTreeView : public QGraphicsView
 
   std::vector<ClockNetGraphicsViewItem*> nets_;
 
-  std::vector<ClockNodeGraphicsViewItem*> buildTree(ClockTree* tree,
+  std::vector<ClockNodeGraphicsViewItem*> buildTree(const ClockTree* tree,
+                                                    const STAGuiInterface* sta,
                                                     int center_index);
   std::unordered_map<std::string, ClockNodeGraphicsViewItem*> items_;
 
@@ -457,16 +429,13 @@ class ClockTreeView : public QGraphicsView
   ClockNodeGraphicsViewItem* addCellToScene(qreal x,
                                             const PinArrival& input_pin,
                                             const PinArrival& output_pin,
-                                            sta::dbNetwork* network,
-                                            ClockTree* tree);
+                                            sta::dbNetwork* network);
   ClockNodeGraphicsViewItem* addRootToScene(qreal x,
                                             const PinArrival& output_pin,
-                                            sta::dbNetwork* network,
-                                            ClockTree* tree);
+                                            sta::dbNetwork* network);
   ClockNodeGraphicsViewItem* addLeafToScene(qreal x,
                                             const PinArrival& input_pin,
-                                            sta::dbNetwork* network,
-                                            bool visible);
+                                            sta::dbNetwork* network);
   void addNode(qreal x,
                ClockNodeGraphicsViewItem* node,
                const QString& tooltip,

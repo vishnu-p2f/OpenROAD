@@ -70,9 +70,8 @@ void defiSite::Destroy()
 
 void defiSite::clear()
 {
-  if (siteName_) {
+  if (siteName_)
     *siteName_ = '\0';
-  }
   x_num_ = 0.0;
   y_num_ = 0.0;
   x_step_ = 0.0;
@@ -85,12 +84,10 @@ void defiSite::setName(const char* name)
   int len = 1;
   char* from = (char*) name;
   clear();
-  while (*from++) {
+  while (*from++)
     len++;
-  }
-  if (nameSize_ < len) {
+  if (nameSize_ < len)
     bumpName(len);
-  }
   strcpy(siteName_, defData->DEFCASE(name));
 }
 

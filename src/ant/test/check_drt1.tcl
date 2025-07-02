@@ -9,3 +9,4 @@ check_antennas -verbose
 check_antennas -net net50
 catch { check_antennas -verbose -net xxx } msg
 puts $msg
+

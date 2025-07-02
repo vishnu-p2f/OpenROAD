@@ -1,8 +1,6 @@
 # repair_timing -setup thru latch
 source helpers.tcl
-if { ![info exists repair_args] } {
-  set repair_args {}
-}
+if {[expr {![info exists repair_args]}]} { set repair_args {} }
 read_liberty sky130hd/sky130hd_tt.lib
 read_lef sky130hd/sky130hd.tlef
 read_lef sky130hd/sky130hd_std_cell.lef

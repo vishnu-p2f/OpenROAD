@@ -10,12 +10,55 @@
 #include "dpl/Opendp.h"
 #include "utl/Logger.h"
 
+
+
+namespace dpl {
+
+using std::vector;
+
+// Swig vector type in does not seem to work at all.
+// (see odb/src/swig/common/polgon.i)
+// Copied from opensta/tcl/StaTcl.i
+template <class TYPE>
+vector<TYPE> *
+tclListSeq(Tcl_Obj *const source,
+	   swig_type_info *swig_type,
+	   Tcl_Interp *interp)
+{
+  int argc;
+  Tcl_Obj **argv;
+
+  if (Tcl_ListObjGetElements(interp, source, &argc, &argv) == TCL_OK
+      && argc > 0) {
+    vector<TYPE> *seq = new vector<TYPE>;
+    for (int i = 0; i < argc; i++) {
+      void *obj;
+      // Ignore returned TCL_ERROR because can't get swig_type_info.
+      SWIG_ConvertPtr(argv[i], &obj, swig_type, false);
+      seq->push_back(reinterpret_cast<TYPE>(obj));
+    }
+    return seq;
+  }
+  else
+    return nullptr;
+}
+  
+dpl::dbMasterSeq *
+tclListSeqdbMaster(Tcl_Obj *const source,
+                   Tcl_Interp *interp)
+{
+  return tclListSeq<odb::dbMaster*>(source, SWIGTYPE_p_odb__dbMaster, interp);
+}
+
+}
+
 %}
 
 %include "../../Exception.i"
 
-%import <std_vector.i>
-%import "dbtypes.i"
+%typemap(in) dpl::dbMasterSeq * {
+  $1 = dpl::tclListSeqdbMaster($input, interp);
+}
 
 %inline %{
 
@@ -71,7 +114,7 @@ set_padding_inst(odb::dbInst *inst,
 }
 
 void
-filler_placement_cmd(const std::vector<odb::dbMaster*>& filler_masters,
+filler_placement_cmd(dpl::dbMasterSeq *filler_masters,
                      const char* prefix,
                      bool verbose)
 {

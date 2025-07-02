@@ -87,13 +87,6 @@ extSpef::~extSpef()
   delete _nodeCoordParser;
   free(_msgBuf1);
   free(_msgBuf2);
-
-  for (uint ii = 0; ii < _hcnrc->getSize(); ii++) {
-    delete _hcnrc->geti(ii);
-  }
-  delete _hcnrc;
-  delete _nrseg;
-  delete _srsegi;
 }
 
 void extSpef::setBlock(dbBlock* blk)
@@ -921,8 +914,7 @@ void extSpef::writeCouplingCapsNoSort(dbSet<dbCCSeg>& capSet, const uint netId)
 void extSpef::writeCouplingCaps(dbSet<dbCCSeg>& capSet, const uint netId)
 {
   if (_preserveCapValues) {
-    writeCouplingCapsNoSort(capSet, netId);
-    return;
+    return writeCouplingCapsNoSort(capSet, netId);
   }
 
   std::vector<dbCCSeg*> vec_cc(capSet.begin(), capSet.end());
@@ -1430,20 +1422,20 @@ void extSpef::writeBlock(char* nodeCoord,
                          bool noBackSlash,
                          bool parallel)
 {
-  writeBlock(nodeCoord,
-             capUnit,
-             resUnit,
-             stopAfterNameMap,
-             *tnets,
-             wClock,
-             wConn,
-             wCap,
-             wOnlyCCcap,
-             wRes,
-             noCnum,
-             stopBeforeDnets,
-             noBackSlash,
-             parallel);
+  return writeBlock(nodeCoord,
+                    capUnit,
+                    resUnit,
+                    stopAfterNameMap,
+                    *tnets,
+                    wClock,
+                    wConn,
+                    wCap,
+                    wOnlyCCcap,
+                    wRes,
+                    noCnum,
+                    stopBeforeDnets,
+                    noBackSlash,
+                    parallel);
 }
 
 void extSpef::writeBlock(const char* nodeCoord,

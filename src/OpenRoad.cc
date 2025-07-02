@@ -24,7 +24,6 @@
 #include "dft/MakeDft.hh"
 #include "dpl/MakeOpendp.h"
 #include "dst/MakeDistributed.h"
-#include "exa/MakeExample.h"
 #include "fin/MakeFinale.h"
 #include "gpl/MakeReplace.h"
 #include "grt/GlobalRouter.h"
@@ -101,7 +100,6 @@ OpenRoad::~OpenRoad()
   deleteTritonCts(tritonCts_);
   deleteTapcell(tapcell_);
   deleteMacroPlacer(macro_placer_);
-  deleteExample(example_);
   deleteOpenRCX(extractor_);
   deleteTritonRoute(detailed_router_);
   deleteReplace(replace_);
@@ -176,7 +174,6 @@ void OpenRoad::init(Tcl_Interp* tcl_interp,
   tritonCts_ = cts::makeTritonCts();
   tapcell_ = tap::makeTapcell();
   macro_placer_ = mpl::makeMacroPlacer();
-  example_ = exa::makeExample();
   extractor_ = rcx::makeOpenRCX();
   detailed_router_ = drt::makeTritonRoute();
   replace_ = gpl::makeReplace();
@@ -242,14 +239,14 @@ void OpenRoad::init(Tcl_Interp* tcl_interp,
                   logger_,
                   partitionMgr_,
                   tcl_interp);
-  initExample(example_, db_, logger_, tcl_interp);
   initOpenRCX(extractor_, db_, logger_, getVersion(), tcl_interp);
   initICeWall(icewall_, db_, logger_, tcl_interp);
   initRestructure(restructure_, logger_, sta_, db_, resizer_, tcl_interp);
   initTritonRoute(
       detailed_router_, db_, logger_, distributer_, stt_builder_, tcl_interp);
   initPDNSim(pdnsim_, logger_, db_, sta_, resizer_, opendp_, tcl_interp);
-  initAntennaChecker(antenna_checker_, db_, logger_, tcl_interp);
+  initAntennaChecker(
+      antenna_checker_, db_, global_router_, logger_, tcl_interp);
   initPartitionMgr(
       partitionMgr_, db_, getDbNetwork(), sta_, logger_, tcl_interp);
   initPdnGen(pdngen_, db_, logger_, tcl_interp);
@@ -390,7 +387,7 @@ void OpenRoad::writeAbstractLef(const char* filename,
   if (!block) {
     logger_->error(ORD, 53, "No block is loaded.");
   }
-  utl::OutStreamHandler stream_handler(filename);
+  utl::StreamHandler stream_handler(filename);
   odb::lefout writer(logger_, stream_handler.getStream());
   writer.setBloatFactor(bloat_factor);
   writer.setBloatOccupiedLayers(bloat_occupied_layers);
@@ -421,18 +418,18 @@ void OpenRoad::writeLef(const char* filename)
         } else {
           name += "_" + std::to_string(cnt);
         }
-        utl::OutStreamHandler stream_handler(name.c_str());
+        utl::StreamHandler stream_handler(name.c_str());
         odb::lefout lef_writer(logger_, stream_handler.getStream());
         lef_writer.writeLib(lib);
       } else {
-        utl::OutStreamHandler stream_handler(filename);
+        utl::StreamHandler stream_handler(filename);
         odb::lefout lef_writer(logger_, stream_handler.getStream());
         lef_writer.writeTechAndLib(lib);
       }
       ++cnt;
     }
   } else if (db_->getTech()) {
-    utl::OutStreamHandler stream_handler(filename);
+    utl::StreamHandler stream_handler(filename);
     odb::lefout lef_writer(logger_, stream_handler.getStream());
     lef_writer.writeTech(db_->getTech());
   }
@@ -457,9 +454,10 @@ void OpenRoad::writeCdl(const char* outFilename,
 
 void OpenRoad::readDb(const char* filename, bool hierarchy)
 {
+  std::ifstream stream;
+  stream.open(filename, std::ios::binary);
   try {
-    utl::InStreamHandler handler(filename, true);
-    readDb(handler.getStream());
+    readDb(stream);
   } catch (const std::ios_base::failure& f) {
     logger_->error(ORD, 54, "odb file {} is invalid: {}", filename, f.what());
   }
@@ -493,8 +491,9 @@ void OpenRoad::writeDb(std::ostream& stream)
 
 void OpenRoad::writeDb(const char* filename)
 {
-  utl::OutStreamHandler stream_handler(filename, true);
-  writeDb(stream_handler.getStream());
+  utl::StreamHandler stream_handler(filename, true);
+
+  db_->write(stream_handler.getStream());
 }
 
 void OpenRoad::readVerilog(const char* filename)

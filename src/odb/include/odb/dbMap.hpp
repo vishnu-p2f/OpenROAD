@@ -38,8 +38,11 @@ inline dbMap<T, D>::dbMap(const dbSet<T>& set)
 template <class T, class D>
 inline dbMap<T, D>::~dbMap()
 {
-  delete _map;
-  delete _vector;
+  if (_map)
+    delete _map;
+
+  if (_vector)
+    delete _vector;
 }
 
 template <class T, class D>

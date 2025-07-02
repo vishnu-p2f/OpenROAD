@@ -1,5 +1,6 @@
 {
     "name":"dbModInst",
+    "type":"dbObject",
     "fields":[
 	{
 	    "name":"_name",
@@ -43,7 +44,7 @@
 	{
       	    "name":"_moditerms",
 	    "type":"dbId<_dbModITerm >",
-	    "flags":["no-get","no-set","no-serial"],	
+	    "flags":["no-get","no-set","no-serial"],	    
 	    "parent":"dbBlock"
 	}
     ],

@@ -85,7 +85,10 @@ lefrSettings::lefrSettings()
 
 void lefrSettings::reset()
 {
-  delete lefSettings;
+  if (lefSettings) {
+    delete lefSettings;
+  }
+
   lefSettings = new lefrSettings();
 }
 

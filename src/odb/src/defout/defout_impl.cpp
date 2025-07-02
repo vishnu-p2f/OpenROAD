@@ -104,7 +104,7 @@ void defout_impl::selectInst(dbInst* inst)
   _select_inst_list.push_back(inst);
 }
 
-bool defout_impl::writeBlock(dbBlock* block, std::ostream& stream)
+bool defout_impl::writeBlock(dbBlock* block, const char* def_file)
 {
   if (!_select_net_list.empty()) {
     _select_net_map = new dbMap<dbNet, char>(block->getNets());
@@ -141,8 +141,14 @@ bool defout_impl::writeBlock(dbBlock* block, std::ostream& stream)
 
   _dist_factor
       = (double) block->getDefUnits() / (double) block->getDbUnitsPerMicron();
+  utl::FileHandler fileHandler(def_file);
+  _out = fileHandler.getFile();
 
-  _out = &stream;
+  if (_out == nullptr) {
+    _logger->warn(
+        utl::ODB, 172, "Cannot open DEF file ({}) for writing", def_file);
+    return false;
+  }
 
   // By default C File*'s are line buffered which means they get dumped on every
   // newline, which is nominally pretty expensive. This makes it so that the
@@ -150,24 +156,26 @@ bool defout_impl::writeBlock(dbBlock* block, std::ostream& stream)
   // be as much as 16kb. DEF's have a lot of newlines, and are large in size
   // which makes writing them really slow with line buffering.
   //
-  // The following line disables automatic flushing of the buffer.
-  *_out << std::nounitbuf;
+  // The following lines enable IO buffering based on disk block size.
+  struct stat stats;
+  fstat(fileno(_out), &stats);
+  setvbuf(_out, nullptr, _IOFBF, stats.st_blksize);
 
   if (_version == defout::DEF_5_3) {
-    *_out << "VERSION 5.3 ;\n";
+    fprintf(_out, "VERSION 5.3 ;\n");
   } else if (_version == defout::DEF_5_4) {
-    *_out << "VERSION 5.4 ;\n";
+    fprintf(_out, "VERSION 5.4 ;\n");
   } else if (_version == defout::DEF_5_5) {
-    *_out << "VERSION 5.5 ;\n";
+    fprintf(_out, "VERSION 5.5 ;\n");
   } else if (_version == defout::DEF_5_6) {
-    *_out << "VERSION 5.6 ;\n";
+    fprintf(_out, "VERSION 5.6 ;\n");
   } else if (_version == defout::DEF_5_7) {
-    *_out << "VERSION 5.7 ;\n";
+    fprintf(_out, "VERSION 5.7 ;\n");
   } else if (_version == defout::DEF_5_8) {
-    *_out << "VERSION 5.8 ;\n";
+    fprintf(_out, "VERSION 5.8 ;\n");
   }
   if (_version < defout::DEF_5_6) {
-    *_out << "NAMESCASESENSITIVE ON ;\n";
+    fprintf(_out, "NAMESCASESENSITIVE ON ;\n");
   }
   char hd = block->getHierarchyDelimiter();
 
@@ -175,7 +183,7 @@ bool defout_impl::writeBlock(dbBlock* block, std::ostream& stream)
     hd = '|';
   }
 
-  *_out << "DIVIDERCHAR \"" << hd << "\" ;\n";
+  fprintf(_out, "DIVIDERCHAR \"%c\" ;\n", hd);
 
   char left_bus, right_bus;
   block->getBusDelimiters(left_bus, right_bus);
@@ -185,12 +193,12 @@ bool defout_impl::writeBlock(dbBlock* block, std::ostream& stream)
     right_bus = ']';
   }
 
-  *_out << "BUSBITCHARS \"" << left_bus << right_bus << "\" ;\n";
+  fprintf(_out, "BUSBITCHARS \"%c%c\" ;\n", left_bus, right_bus);
 
   std::string bname = block->getName();
-  *_out << "DESIGN " << bname << " ;\n";
+  fprintf(_out, "DESIGN %s ;\n", bname.c_str());
 
-  *_out << "UNITS DISTANCE MICRONS " << block->getDefUnits() << " ;\n";
+  fprintf(_out, "UNITS DISTANCE MICRONS %d ;\n", block->getDefUnits());
 
   writePropertyDefinitions(block);
 
@@ -204,11 +212,10 @@ bool defout_impl::writeBlock(dbBlock* block, std::ostream& stream)
     int y2 = defdist(r.yMax());
 
     if ((x1 != 0) || (y1 != 0) || (x2 != 0) || (y2 != 0)) {
-      *_out << "DIEAREA ( " << x1 << " " << y1 << " ) ( " << x2 << " " << y2
-            << " ) ;\n";
+      fprintf(_out, "DIEAREA ( %d %d ) ( %d %d ) ;\n", x1, y1, x2, y2);
     }
   } else {
-    *_out << "DIEAREA ";
+    fprintf(_out, "DIEAREA ");
     std::vector<odb::Point> points = die_area.getPoints();
     // ODB ends polygons with a copy of 0 index vertex, in DEF there
     // is an implicit rule that the last vertex is connected to the
@@ -216,9 +223,9 @@ bool defout_impl::writeBlock(dbBlock* block, std::ostream& stream)
     for (int i = 0; i < points.size() - 1; i++) {
       int x = defdist(points[i].x());
       int y = defdist(points[i].y());
-      *_out << "( " << x << " " << y << " ) ";
+      fprintf(_out, "( %d %d ) ", x, y);
     }
-    *_out << ";\n";
+    fprintf(_out, ";\n");
   }
 
   writeRows(block);
@@ -239,23 +246,14 @@ bool defout_impl::writeBlock(dbBlock* block, std::ostream& stream)
   writeGroups(block);
   writeScanChains(block);
 
-  *_out << "END DESIGN\n";
+  fprintf(_out, "END DESIGN\n");
   {
     delete _select_net_map;
   }
   {
     delete _select_inst_map;
   }
-
-  _out = nullptr;
-
   return true;
-}
-
-bool defout_impl::writeBlock(dbBlock* block, const char* def_file)
-{
-  utl::OutStreamHandler stream_handler(def_file, false);
-  return writeBlock(block, stream_handler.getStream());
 }
 
 void defout_impl::writeRows(dbBlock* block)
@@ -273,21 +271,26 @@ void defout_impl::writeRows(dbBlock* block)
     std::string sn = site->getName();
     const char* o = defOrient(row->getOrient());
 
-    *_out << "ROW " << n << " " << sn << " " << defdist(origin.x()) << " "
-          << defdist(origin.y()) << " " << o << " ";
+    fprintf(_out,
+            "ROW %s %s %d %d %s ",
+            n.c_str(),
+            sn.c_str(),
+            defdist(origin.x()),
+            defdist(origin.y()),
+            o);
 
     if (row->getDirection() == dbRowDir::VERTICAL) {
-      *_out << "DO 1 BY " << c << " STEP 0 " << defdist(s);
+      fprintf(_out, "DO 1 BY %d STEP 0 %d", c, defdist(s));
     } else {
-      *_out << "DO " << c << " BY 1 STEP " << defdist(s) << " 0";
+      fprintf(_out, "DO %d BY 1 STEP %d 0", c, defdist(s));
     }
 
     if (hasProperties(row, ROW)) {
-      *_out << " + PROPERTY ";
+      fprintf(_out, " + PROPERTY ");
       writeProperties(row);
     }
 
-    *_out << " ;\n";
+    fprintf(_out, " ;\n");
   }
 }
 
@@ -311,30 +314,36 @@ void defout_impl::writeTracks(dbBlock* block)
       int orgX, count, step, firstmask;
       bool samemask;
       grid->getGridPatternX(i, orgX, count, step, firstmask, samemask);
-      *_out << "TRACKS X " << defdist(orgX) << " DO " << count << " STEP "
-            << defdist(step);
+      fprintf(_out,
+              "TRACKS X %d DO %d STEP %d",
+              defdist(orgX),
+              count,
+              defdist(step));
       if (firstmask != 0) {
-        *_out << " MASK " << firstmask;
+        fprintf(_out, " MASK %d", firstmask);
         if (samemask) {
-          *_out << " SAMEMASK";
+          fprintf(_out, " SAMEMASK");
         }
       }
-      *_out << " LAYER " << lname << " ;\n";
+      fprintf(_out, " LAYER %s ;\n", lname.c_str());
     }
 
     for (int i = 0; i < grid->getNumGridPatternsY(); ++i) {
       int orgY, count, step, firstmask;
       bool samemask;
       grid->getGridPatternY(i, orgY, count, step, firstmask, samemask);
-      *_out << "TRACKS Y " << defdist(orgY) << " DO " << count << " STEP "
-            << defdist(step);
+      fprintf(_out,
+              "TRACKS Y %d DO %d STEP %d",
+              defdist(orgY),
+              count,
+              defdist(step));
       if (firstmask != 0) {
-        *_out << " MASK " << firstmask;
+        fprintf(_out, " MASK %d", firstmask);
         if (samemask) {
-          *_out << " SAMEMASK";
+          fprintf(_out, " SAMEMASK");
         }
       }
-      *_out << " LAYER " << lname << " ;\n";
+      fprintf(_out, " LAYER %s ;\n", lname.c_str());
     }
   }
 }
@@ -352,15 +361,21 @@ void defout_impl::writeGCells(dbBlock* block)
   for (i = 0; i < grid->getNumGridPatternsX(); ++i) {
     int orgX, count, step;
     grid->getGridPatternX(i, orgX, count, step);
-    *_out << "GCELLGRID X " << defdist(orgX) << " DO " << count << " STEP "
-          << defdist(step) << " ;\n";
+    fprintf(_out,
+            "GCELLGRID X %d DO %d STEP %d ;\n",
+            defdist(orgX),
+            count,
+            defdist(step));
   }
 
   for (i = 0; i < grid->getNumGridPatternsY(); ++i) {
     int orgY, count, step;
     grid->getGridPatternY(i, orgY, count, step);
-    *_out << "GCELLGRID Y " << defdist(orgY) << " DO " << count << " STEP "
-          << defdist(step) << " ;\n";
+    fprintf(_out,
+            "GCELLGRID Y %d DO %d STEP %d ;\n",
+            defdist(orgY),
+            count,
+            defdist(step));
   }
 }
 
@@ -385,7 +400,7 @@ void defout_impl::writeVias(dbBlock* block)
     ++cnt;
   }
 
-  *_out << "VIAS " << cnt << " ;\n";
+  fprintf(_out, "VIAS %u ;\n", cnt);
 
   for (itr = vias.begin(); itr != vias.end(); ++itr) {
     dbVia* via = *itr;
@@ -397,60 +412,69 @@ void defout_impl::writeVias(dbBlock* block)
     writeVia(via);
   }
 
-  *_out << "END VIAS\n";
+  fprintf(_out, "END VIAS\n");
 }
 
 void defout_impl::writeVia(dbVia* via)
 {
   std::string vname = via->getName();
-  *_out << "    - " << vname;
+  fprintf(_out, "    - %s", vname.c_str());
   dbTechViaGenerateRule* rule = via->getViaGenerateRule();
 
   if ((_version >= defout::DEF_5_6) && via->hasParams() && (rule != nullptr)) {
     std::string rname = rule->getName();
-    *_out << " + VIARULE " << rname;
+    fprintf(_out, " + VIARULE %s", rname.c_str());
 
     const dbViaParams P = via->getViaParams();
 
-    *_out << " + CUTSIZE " << defdist(P.getXCutSize()) << " "
-          << defdist(P.getYCutSize()) << " ";
+    fprintf(_out,
+            " + CUTSIZE %d %d ",
+            defdist(P.getXCutSize()),
+            defdist(P.getYCutSize()));
     std::string top = P.getTopLayer()->getName();
     std::string bot = P.getBottomLayer()->getName();
     std::string cut = P.getCutLayer()->getName();
-    *_out << " + LAYERS " << bot << " " << cut << " " << top << " ";
-    *_out << " + CUTSPACING " << defdist(P.getXCutSpacing()) << " "
-          << defdist(P.getYCutSpacing()) << " ";
-    *_out << " + ENCLOSURE " << defdist(P.getXBottomEnclosure()) << " "
-          << defdist(P.getYBottomEnclosure()) << " "
-          << defdist(P.getXTopEnclosure()) << " "
-          << defdist(P.getYTopEnclosure()) << " ";
+    fprintf(_out, " + LAYERS %s %s %s ", bot.c_str(), cut.c_str(), top.c_str());
+    fprintf(_out,
+            " + CUTSPACING %d %d ",
+            defdist(P.getXCutSpacing()),
+            defdist(P.getYCutSpacing()));
+    fprintf(_out,
+            " + ENCLOSURE %d %d %d %d ",
+            defdist(P.getXBottomEnclosure()),
+            defdist(P.getYBottomEnclosure()),
+            defdist(P.getXTopEnclosure()),
+            defdist(P.getYTopEnclosure()));
 
     if ((P.getNumCutRows() != 1) || (P.getNumCutCols() != 1)) {
-      *_out << " + ROWCOL " << P.getNumCutRows() << " " << P.getNumCutCols()
-            << " ";
+      fprintf(_out, " + ROWCOL %d %d ", P.getNumCutRows(), P.getNumCutCols());
     }
 
     if ((P.getXOrigin() != 0) || (P.getYOrigin() != 0)) {
-      *_out << " + ORIGIN " << defdist(P.getXOrigin()) << " "
-            << defdist(P.getYOrigin()) << " ";
+      fprintf(_out,
+              " + ORIGIN %d %d ",
+              defdist(P.getXOrigin()),
+              defdist(P.getYOrigin()));
     }
 
     if ((P.getXTopOffset() != 0) || (P.getYTopOffset() != 0)
         || (P.getXBottomOffset() != 0) || (P.getYBottomOffset() != 0)) {
-      *_out << " + OFFSET " << defdist(P.getXBottomOffset()) << " "
-            << defdist(P.getYBottomOffset()) << " "
-            << defdist(P.getXTopOffset()) << " " << defdist(P.getYTopOffset())
-            << " ";
+      fprintf(_out,
+              " + OFFSET %d %d %d %d ",
+              defdist(P.getXBottomOffset()),
+              defdist(P.getYBottomOffset()),
+              defdist(P.getXTopOffset()),
+              defdist(P.getYTopOffset()));
     }
 
     std::string pname = via->getPattern();
     if (strcmp(pname.c_str(), "") != 0) {
-      *_out << " + PATTERNNAME " << pname;
+      fprintf(_out, " + PATTERNNAME %s", pname.c_str());
     }
   } else {
     std::string pname = via->getPattern();
     if (strcmp(pname.c_str(), "") != 0) {
-      *_out << " + PATTERNNAME " << pname;
+      fprintf(_out, " + PATTERNNAME %s", pname.c_str());
     }
 
     int i = 0;
@@ -472,15 +496,20 @@ void defout_impl::writeVia(dbVia* via)
       int y2 = defdist(box->yMax());
 
       if ((++i & 7) == 0) {
-        *_out << "\n      ";
+        fprintf(_out, "\n      ");
       }
 
-      *_out << " + RECT " << lname << " ( " << x1 << " " << y1 << " ) ( " << x2
-            << " " << y2 << " )";
+      fprintf(_out,
+              " + RECT %s ( %d %d ) ( %d %d )",
+              lname.c_str(),
+              x1,
+              y1,
+              x2,
+              y2);
     }
   }
 
-  *_out << " ;\n";
+  fprintf(_out, " ;\n");
 }
 
 void defout_impl::writeComponentMaskShift(dbBlock* block)
@@ -491,18 +520,18 @@ void defout_impl::writeComponentMaskShift(dbBlock* block)
     return;
   }
 
-  *_out << "COMPONENTMASKSHIFT ";
+  fprintf(_out, "COMPONENTMASKSHIFT ");
   for (dbTechLayer* layer : layers) {
-    *_out << layer->getConstName() << " ";
+    fprintf(_out, "%s ", layer->getConstName());
   }
-  *_out << ";\n";
+  fprintf(_out, ";\n");
 }
 
 void defout_impl::writeInsts(dbBlock* block)
 {
   dbSet<dbInst> insts = block->getInsts();
 
-  *_out << "COMPONENTS " << insts.size() << " ;\n";
+  fprintf(_out, "COMPONENTS %u ;\n", insts.size());
 
   // Sort the components for consistent output
   for (dbInst* inst : sortedSet(insts)) {
@@ -512,7 +541,7 @@ void defout_impl::writeInsts(dbBlock* block)
     writeInst(inst);
   }
 
-  *_out << "END COMPONENTS\n";
+  fprintf(_out, "END COMPONENTS\n");
 }
 
 void defout_impl::writeNonDefaultRules(dbBlock* block)
@@ -523,7 +552,7 @@ void defout_impl::writeNonDefaultRules(dbBlock* block)
     return;
   }
 
-  *_out << "NONDEFAULTRULES " << rules.size() << " ;\n";
+  fprintf(_out, "NONDEFAULTRULES %u ;\n", rules.size());
 
   dbSet<dbTechNonDefaultRule>::iterator itr;
 
@@ -532,16 +561,16 @@ void defout_impl::writeNonDefaultRules(dbBlock* block)
     writeNonDefaultRule(rule);
   }
 
-  *_out << "END NONDEFAULTRULES\n";
+  fprintf(_out, "END NONDEFAULTRULES\n");
 }
 
 void defout_impl::writeNonDefaultRule(dbTechNonDefaultRule* rule)
 {
   std::string name = rule->getName();
-  *_out << "    - " << name << "\n";
+  fprintf(_out, "    - %s\n", name.c_str());
 
   if (rule->getHardSpacing()) {
-    *_out << "      + HARDSPACING\n";
+    fprintf(_out, "      + HARDSPACING\n");
   }
 
   std::vector<dbTechLayerRule*> layer_rules;
@@ -559,7 +588,7 @@ void defout_impl::writeNonDefaultRule(dbTechNonDefaultRule* rule)
   for (uvitr = use_vias.begin(); uvitr != use_vias.end(); ++uvitr) {
     dbTechVia* via = *uvitr;
     std::string vname = via->getName();
-    *_out << "      + VIA " << vname << "\n";
+    fprintf(_out, "      + VIA %s\n", vname.c_str());
   }
 
   std::vector<dbTechViaGenerateRule*> use_rules;
@@ -569,7 +598,7 @@ void defout_impl::writeNonDefaultRule(dbTechNonDefaultRule* rule)
   for (uvritr = use_rules.begin(); uvritr != use_rules.end(); ++uvritr) {
     dbTechViaGenerateRule* rule = *uvritr;
     std::string rname = rule->getName();
-    *_out << "      + VIARULE " << rname << "\n";
+    fprintf(_out, "      + VIARULE %s\n", rname.c_str());
   }
 
   dbTech* tech = rule->getDb()->getTech();
@@ -582,16 +611,16 @@ void defout_impl::writeNonDefaultRule(dbTechNonDefaultRule* rule)
 
     if (rule->getMinCuts(layer, count)) {
       std::string lname = layer->getName();
-      *_out << "      + MINCUTS " << lname << " " << count << "\n";
+      fprintf(_out, "      + MINCUTS %s %d\n", lname.c_str(), count);
     }
   }
 
   if (hasProperties(rule, NONDEFAULTRULE)) {
-    *_out << "    + PROPERTY ";
+    fprintf(_out, "    + PROPERTY ");
     writeProperties(rule);
   }
 
-  *_out << "    ;\n";
+  fprintf(_out, "    ;\n");
 }
 
 void defout_impl::writeLayerRule(dbTechLayerRule* rule)
@@ -599,19 +628,19 @@ void defout_impl::writeLayerRule(dbTechLayerRule* rule)
   dbTechLayer* layer = rule->getLayer();
   std::string name = layer->getName();
 
-  *_out << "      + LAYER " << name;
+  fprintf(_out, "      + LAYER %s", name.c_str());
 
-  *_out << " WIDTH " << defdist(rule->getWidth());
+  fprintf(_out, " WIDTH %d", defdist(rule->getWidth()));
 
   if (rule->getSpacing()) {
-    *_out << " SPACING " << defdist(rule->getSpacing());
+    fprintf(_out, " SPACING %d", defdist(rule->getSpacing()));
   }
 
-  if (rule->getWireExtension() != 0) {
-    *_out << " WIREEXTENSION " << defdist(rule->getWireExtension());
+  if (rule->getWireExtension() != 0.0) {
+    fprintf(_out, " WIREEXTENSION %d", defdist(rule->getWireExtension()));
   }
 
-  *_out << "\n";
+  fprintf(_out, "\n");
 }
 
 void defout_impl::writeInst(dbInst* inst)
@@ -621,16 +650,16 @@ void defout_impl::writeInst(dbInst* inst)
 
   if (_use_net_inst_ids) {
     if (_use_master_ids) {
-      *_out << "    - I" << inst->getId() << " M" << master->getMasterId();
+      fprintf(_out, "    - I%u M%u", inst->getId(), master->getMasterId());
     } else {
-      *_out << "    - I" << inst->getId() << " " << mname;
+      fprintf(_out, "    - I%u %s", inst->getId(), mname.c_str());
     }
   } else {
     std::string iname = inst->getName();
     if (_use_master_ids) {
-      *_out << "    - " << iname << " M" << master->getMasterId();
+      fprintf(_out, "    - %s M%u", iname.c_str(), master->getMasterId());
     } else {
-      *_out << "    - " << iname << " " << mname;
+      fprintf(_out, "    - %s %s", iname.c_str(), mname.c_str());
     }
   }
 
@@ -641,19 +670,19 @@ void defout_impl::writeInst(dbInst* inst)
       break;
 
     case dbSourceType::NETLIST:
-      *_out << " + SOURCE NETLIST";
+      fprintf(_out, " + SOURCE NETLIST");
       break;
 
     case dbSourceType::DIST:
-      *_out << " + SOURCE DIST";
+      fprintf(_out, " + SOURCE DIST");
       break;
 
     case dbSourceType::USER:
-      *_out << " + SOURCE USER";
+      fprintf(_out, " + SOURCE USER");
       break;
 
     case dbSourceType::TIMING:
-      *_out << " + SOURCE TIMING";
+      fprintf(_out, " + SOURCE TIMING");
       break;
 
     case dbSourceType::TEST:
@@ -673,30 +702,30 @@ void defout_impl::writeInst(dbInst* inst)
       break;
 
     case dbPlacementStatus::UNPLACED: {
-      *_out << " + UNPLACED";
+      fprintf(_out, " + UNPLACED");
       break;
     }
 
     case dbPlacementStatus::SUGGESTED:
     case dbPlacementStatus::PLACED: {
-      *_out << " + PLACED ( " << x << " " << y << " ) " << orient;
+      fprintf(_out, " + PLACED ( %d %d ) %s", x, y, orient);
       break;
     }
 
     case dbPlacementStatus::LOCKED:
     case dbPlacementStatus::FIRM: {
-      *_out << " + FIXED ( " << x << " " << y << " ) " << orient;
+      fprintf(_out, " + FIXED ( %d %d ) %s", x, y, orient);
       break;
     }
 
     case dbPlacementStatus::COVER: {
-      *_out << " + COVER ( " << x << " " << y << " ) " << orient;
+      fprintf(_out, " + COVER ( %d %d ) %s", x, y, orient);
       break;
     }
   }
 
   if (inst->getWeight() != 0) {
-    *_out << " + WEIGHT " << inst->getWeight();
+    fprintf(_out, " + WEIGHT %d", inst->getWeight());
   }
 
   dbRegion* region = inst->getRegion();
@@ -704,12 +733,12 @@ void defout_impl::writeInst(dbInst* inst)
   if (region) {
     if (!region->getBoundaries().empty()) {
       std::string rname = region->getName();
-      *_out << " + REGION " << rname;
+      fprintf(_out, " + REGION %s", rname.c_str());
     }
   }
 
   if (hasProperties(inst, COMPONENT)) {
-    *_out << " + PROPERTY ";
+    fprintf(_out, " + PROPERTY ");
     writeProperties(inst);
   }
 
@@ -722,12 +751,11 @@ void defout_impl::writeInst(dbInst* inst)
       int right = defdist(box->xMax());
       int top = defdist(box->yMax());
 
-      *_out << " + HALO " << left << " " << bottom << " " << right << " "
-            << top;
+      fprintf(_out, " + HALO %d %d %d %d", left, bottom, right, top);
     }
   }
 
-  *_out << " ;\n";
+  fprintf(_out, " ;\n");
 }
 
 void defout_impl::writeBTerms(dbBlock* block)
@@ -753,7 +781,7 @@ void defout_impl::writeBTerms(dbBlock* block)
     ++n;
   }
 
-  *_out << "PINS " << n << " ;\n";
+  fprintf(_out, "PINS %u ;\n", n);
 
   for (dbBTerm* bterm : sortedSet(bterms)) {
     dbNet* net = bterm->getNet();
@@ -763,7 +791,7 @@ void defout_impl::writeBTerms(dbBlock* block)
     writeBTerm(bterm);
   }
 
-  *_out << "END PINS\n";
+  fprintf(_out, "END PINS\n");
 }
 
 void defout_impl::writeRegions(dbBlock* block)
@@ -787,7 +815,7 @@ void defout_impl::writeRegions(dbBlock* block)
     return;
   }
 
-  *_out << "REGIONS " << cnt << " ;\n";
+  fprintf(_out, "REGIONS %u ;\n", cnt);
 
   for (itr = regions.begin(); itr != regions.end(); ++itr) {
     dbRegion* region = *itr;
@@ -799,7 +827,7 @@ void defout_impl::writeRegions(dbBlock* block)
     }
 
     std::string name = region->getName();
-    *_out << "    - " << name;
+    fprintf(_out, "    - %s", name.c_str());
 
     dbSet<dbBox>::iterator bitr;
     int cnt = 0;
@@ -808,12 +836,15 @@ void defout_impl::writeRegions(dbBlock* block)
       dbBox* box = *bitr;
 
       if ((cnt & 0x3) == 0x3) {
-        *_out << "\n        ";
+        fprintf(_out, "\n        ");
       }
 
-      *_out << " ( " << defdist(box->xMin()) << " " << defdist(box->yMin())
-            << " ) ( " << defdist(box->xMax()) << " " << defdist(box->yMax())
-            << " )";
+      fprintf(_out,
+              " ( %d %d ) ( %d %d )",
+              defdist(box->xMin()),
+              defdist(box->yMin()),
+              defdist(box->xMax()),
+              defdist(box->yMax()));
     }
 
     switch ((dbRegionType::Value) region->getRegionType()) {
@@ -821,23 +852,23 @@ void defout_impl::writeRegions(dbBlock* block)
         break;
 
       case dbRegionType::EXCLUSIVE:
-        *_out << " + TYPE FENCE";
+        fprintf(_out, " + TYPE FENCE");
         break;
 
       case dbRegionType::SUGGESTED:
-        *_out << " + TYPE GUIDE";
+        fprintf(_out, " + TYPE GUIDE");
         break;
     }
 
     if (hasProperties(region, REGION)) {
-      *_out << " + PROPERTY ";
+      fprintf(_out, " + PROPERTY ");
       writeProperties(region);
     }
 
-    *_out << " ;\n";
+    fprintf(_out, " ;\n");
   }
 
-  *_out << "END REGIONS\n";
+  fprintf(_out, "END REGIONS\n");
 }
 
 void defout_impl::writeGroups(dbBlock* block)
@@ -852,14 +883,14 @@ void defout_impl::writeGroups(dbBlock* block)
   if (cnt == 0) {
     return;
   }
-  *_out << "GROUPS " << cnt << " ;\n";
+  fprintf(_out, "GROUPS %u ;\n", cnt);
 
   for (auto group : groups) {
     if (group->getInsts().empty()) {
       continue;
     }
     std::string name = group->getName();
-    *_out << "    - " << name;
+    fprintf(_out, "    - %s", name.c_str());
 
     dbSet<dbInst> insts = group->getInsts();
     dbSet<dbInst>::iterator iitr;
@@ -869,12 +900,12 @@ void defout_impl::writeGroups(dbBlock* block)
       dbInst* inst = *iitr;
 
       if ((cnt & 0x3) == 0x3) {
-        *_out << "\n        ";
+        fprintf(_out, "\n        ");
       }
 
       std::string name = inst->getName();
 
-      *_out << " " << name;
+      fprintf(_out, " %s", name.c_str());
     }
 
     dbRegion* parent = group->getRegion();
@@ -886,19 +917,19 @@ void defout_impl::writeGroups(dbBlock* block)
 
       if (!rboxes.empty()) {
         std::string rname = parent->getName();
-        *_out << " + REGION " << rname;
+        fprintf(_out, " + REGION %s", rname.c_str());
       }
     }
 
     if (hasProperties(group, GROUP)) {
-      *_out << " + PROPERTY ";
+      fprintf(_out, " + PROPERTY ");
       writeProperties(group);
     }
 
-    *_out << " ;\n";
+    fprintf(_out, " ;\n");
   }
 
-  *_out << "END GROUPS\n";
+  fprintf(_out, "END GROUPS\n");
 }
 
 void defout_impl::writeScanChains(dbBlock* block)
@@ -909,7 +940,7 @@ void defout_impl::writeScanChains(dbBlock* block)
     // If we don't have scan chains we have nothing to print
     return;
   }
-  *_out << "\nSCANCHAINS " << scan_chains.size() << " ;\n\n";
+  fprintf(_out, "\nSCANCHAINS %d ;\n\n", scan_chains.size());
 
   for (dbScanChain* scan_chain : dft->getScanChains()) {
     dbSet<dbScanPartition> scan_partitions = scan_chain->getScanPartitions();
@@ -927,17 +958,17 @@ void defout_impl::writeScanChains(dbBlock* block)
       const std::string stop_pin_name = std::visit(
           [](auto&& pin) { return pin->getName(); }, scan_chain->getScanOut());
 
-      *_out << "- " << chain_name << "\n";
-      *_out << "+ START PIN " << start_pin_name << "\n";
+      fprintf(_out, "- %s\n", chain_name.c_str());
+      fprintf(_out, "+ START PIN %s\n", start_pin_name.c_str());
 
       for (dbScanList* scan_list : scan_partition->getScanLists()) {
         dbSet<dbScanInst> scan_insts = scan_list->getScanInsts();
         if (scan_insts.size() == 1 && !already_printed_floating) {
-          *_out << "+ FLOATING\n";
+          fprintf(_out, "+ FLOATING\n");
           already_printed_floating = true;
           already_printed_ordered = false;
         } else if (scan_insts.size() > 1 && !already_printed_ordered) {
-          *_out << "+ ORDERED\n";
+          fprintf(_out, "+ ORDERED\n");
           already_printed_floating = false;
           already_printed_ordered = true;
         }
@@ -948,17 +979,20 @@ void defout_impl::writeScanChains(dbBlock* block)
               [](auto&& pin) { return getPinName(pin); }, access_pins.scan_in);
           const std::string scan_out_name = std::visit(
               [](auto&& pin) { return getPinName(pin); }, access_pins.scan_out);
-          *_out << "  " << scan_inst->getInst()->getName() << " ( IN "
-                << scan_in_name << " ) ( OUT " << scan_out_name << " )\n";
+          fprintf(_out,
+                  "  %s ( IN %s ) ( OUT %s )\n",
+                  scan_inst->getInst()->getName().c_str(),
+                  scan_in_name.c_str(),
+                  scan_out_name.c_str());
         }
       }
-      *_out << "+ PARTITION " << scan_partition->getName() << "\n";
-      *_out << "+ STOP PIN " << stop_pin_name << " ;\n\n";
+      fprintf(_out, "+ PARTITION %s\n", scan_partition->getName().c_str());
+      fprintf(_out, "+ STOP PIN %s ;\n\n", stop_pin_name.c_str());
       ++chain_suffix;
     }
   }
 
-  *_out << "END SCANCHAINS\n\n";
+  fprintf(_out, "END SCANCHAINS\n\n");
 }
 
 void defout_impl::writeBTerm(dbBTerm* bterm)
@@ -976,7 +1010,7 @@ void defout_impl::writeBTerm(dbBTerm* bterm)
         writeBPin(*itr, cnt++);
       }
 
-      *_out << " ;\n";
+      fprintf(_out, " ;\n");
 
       return;
     }
@@ -984,38 +1018,38 @@ void defout_impl::writeBTerm(dbBTerm* bterm)
     std::string bname = bterm->getName();
 
     if (_use_net_inst_ids) {
-      *_out << "    - " << bname << " + NET N" << net->getId();
+      fprintf(_out, "    - %s + NET N%u", bname.c_str(), net->getId());
     } else {
       std::string nname = net->getName();
-      *_out << "    - " << bname << " + NET " << nname;
+      fprintf(_out, "    - %s + NET %s", bname.c_str(), nname.c_str());
     }
 
     if (bterm->isSpecial()) {
-      *_out << " + SPECIAL";
+      fprintf(_out, " + SPECIAL");
     }
 
-    *_out << " + DIRECTION " << defIoType(bterm->getIoType());
+    fprintf(_out, " + DIRECTION %s", defIoType(bterm->getIoType()));
 
     if (_version >= defout::DEF_5_6) {
       dbBTerm* supply = bterm->getSupplyPin();
 
       if (supply) {
         std::string pname = supply->getName();
-        *_out << " + SUPPLYSENSITIVITY " << pname;
+        fprintf(_out, " + SUPPLYSENSITIVITY %s", pname.c_str());
       }
 
       dbBTerm* ground = bterm->getGroundPin();
 
       if (ground) {
         std::string pname = ground->getName();
-        *_out << " + GROUNDSENSITIVITY " << pname;
+        fprintf(_out, " + GROUNDSENSITIVITY %s", pname.c_str());
       }
     }
 
     const char* sig_type = defSigType(bterm->getSigType());
-    *_out << " + USE " << sig_type;
+    fprintf(_out, " + USE %s", sig_type);
 
-    *_out << " ;\n";
+    fprintf(_out, " ;\n");
   } else {
     _logger->warn(utl::ODB,
                   173,
@@ -1033,49 +1067,56 @@ void defout_impl::writeBPin(dbBPin* bpin, int cnt)
   if (cnt == 0 || _version <= defout::DEF_5_6) {
     if (_use_net_inst_ids) {
       if (cnt == 0) {
-        *_out << "    - " << bname << " + NET N" << net->getId();
+        fprintf(_out, "    - %s + NET N%u", bname.c_str(), net->getId());
       } else {
-        *_out << "    - " << bname << ".extra" << cnt << "+ NET N"
-              << net->getId();
+        fprintf(_out,
+                "    - %s.extra%d + NET N%u",
+                bname.c_str(),
+                cnt,
+                net->getId());
       }
     } else {
       std::string nname = net->getName();
       if (cnt == 0) {
-        *_out << "    - " << bname << " + NET " << nname;
+        fprintf(_out, "    - %s + NET %s", bname.c_str(), nname.c_str());
       } else {
-        *_out << "    - " << bname << ".extra" << cnt << " + NET " << nname;
+        fprintf(_out,
+                "    - %s.extra%d + NET %s",
+                bname.c_str(),
+                cnt,
+                nname.c_str());
       }
     }
 
     if (bterm->isSpecial()) {
-      *_out << " + SPECIAL";
+      fprintf(_out, " + SPECIAL");
     }
 
-    *_out << " + DIRECTION " << defIoType(bterm->getIoType());
+    fprintf(_out, " + DIRECTION %s", defIoType(bterm->getIoType()));
 
     if (_version >= defout::DEF_5_6) {
       dbBTerm* supply = bterm->getSupplyPin();
 
       if (supply) {
         std::string pname = supply->getName();
-        *_out << " + SUPPLYSENSITIVITY " << pname;
+        fprintf(_out, " + SUPPLYSENSITIVITY %s", pname.c_str());
       }
 
       dbBTerm* ground = bterm->getGroundPin();
 
       if (ground) {
         std::string pname = ground->getName();
-        *_out << " + GROUNDSENSITIVITY " << pname;
+        fprintf(_out, " + GROUNDSENSITIVITY %s", pname.c_str());
       }
     }
 
-    *_out << " + USE " << defSigType(bterm->getSigType());
+    fprintf(_out, " + USE %s", defSigType(bterm->getSigType()));
   }
 
-  *_out << "\n      ";
+  fprintf(_out, "\n      ");
 
   if (_version > defout::DEF_5_6) {
-    *_out << "+ PORT";
+    fprintf(_out, "+ PORT");
   }
 
   bool isFirst = true;
@@ -1105,10 +1146,15 @@ void defout_impl::writeBPin(dbBPin* bpin, int cnt)
       lname = layer->getName();
     }
 
-    *_out << "\n       ";
+    fprintf(_out, "\n       ");
     if (_version == defout::DEF_5_5) {
-      *_out << " + LAYER " << lname << " ( " << xMin << " " << yMin << " ) ( "
-            << xMax << " " << yMax << " )";
+      fprintf(_out,
+              " + LAYER %s ( %d %d ) ( %d %d )",
+              lname.c_str(),
+              xMin,
+              yMin,
+              xMax,
+              yMax);
     } else {
       std::string layer_name = lname;
       if (_version == defout::DEF_5_8) {
@@ -1120,15 +1166,32 @@ void defout_impl::writeBPin(dbBPin* bpin, int cnt)
       }
       if (bpin->hasEffectiveWidth()) {
         int w = defdist(bpin->getEffectiveWidth());
-        *_out << " + LAYER " << layer_name << " DESIGNRULEWIDTH " << w << " ( "
-              << xMin << " " << yMin << " ) ( " << xMax << " " << yMax << " )";
+        fprintf(_out,
+                " + LAYER %s DESIGNRULEWIDTH %d ( %d %d ) ( %d %d )",
+                layer_name.c_str(),
+                w,
+                xMin,
+                yMin,
+                xMax,
+                yMax);
       } else if (bpin->hasMinSpacing()) {
         int s = defdist(bpin->getMinSpacing());
-        *_out << " + LAYER " << layer_name << " SPACING " << s << " ( " << xMin
-              << " " << yMin << " ) ( " << xMax << " " << yMax << " )";
+        fprintf(_out,
+                " + LAYER %s SPACING %d ( %d %d ) ( %d %d )",
+                layer_name.c_str(),
+                s,
+                xMin,
+                yMin,
+                xMax,
+                yMax);
       } else {
-        *_out << " + LAYER " << layer_name << " ( " << xMin << " " << yMin
-              << " ) ( " << xMax << " " << yMax << " )";
+        fprintf(_out,
+                " + LAYER %s ( %d %d ) ( %d %d )",
+                layer_name.c_str(),
+                xMin,
+                yMin,
+                xMax,
+                yMax);
       }
     }
   }
@@ -1142,18 +1205,18 @@ void defout_impl::writeBPin(dbBPin* bpin, int cnt)
 
     case dbPlacementStatus::SUGGESTED:
     case dbPlacementStatus::PLACED: {
-      *_out << "\n        + PLACED ( " << x << " " << y << " ) N";
+      fprintf(_out, "\n        + PLACED ( %d %d ) N", x, y);
       break;
     }
 
     case dbPlacementStatus::LOCKED:
     case dbPlacementStatus::FIRM: {
-      *_out << "\n        + FIXED ( " << x << " " << y << " ) N";
+      fprintf(_out, "\n        + FIXED ( %d %d ) N", x, y);
       break;
     }
 
     case dbPlacementStatus::COVER: {
-      *_out << "\n        + COVER ( " << x << " " << y << " ) N";
+      fprintf(_out, "\n        + COVER ( %d %d ) N", x, y);
       break;
     }
   }
@@ -1215,7 +1278,7 @@ void defout_impl::writeBlockages(dbBlock* block)
 
     if (first) {
       first = false;
-      *_out << "BLOCKAGES " << bcnt << " ;\n";
+      fprintf(_out, "BLOCKAGES %d ;\n", bcnt);
     }
 
     dbBox* bbox = obs->getBBox();
@@ -1227,36 +1290,36 @@ void defout_impl::writeBlockages(dbBlock* block)
       lname = layer->getName();
     }
 
-    *_out << "    - LAYER " << lname;
+    fprintf(_out, "    - LAYER %s", lname.c_str());
 
     if (inst) {
       if (_use_net_inst_ids) {
-        *_out << " + COMPONENT I" << inst->getId();
+        fprintf(_out, " + COMPONENT I%u", inst->getId());
       } else {
         std::string iname = inst->getName();
-        *_out << " + COMPONENT " << iname;
+        fprintf(_out, " + COMPONENT %s", iname.c_str());
       }
     }
 
     if (obs->isSlotObstruction()) {
-      *_out << " + SLOTS";
+      fprintf(_out, " + SLOTS");
     }
 
     if (obs->isFillObstruction()) {
-      *_out << " + FILLS";
+      fprintf(_out, " + FILLS");
     }
 
     if (obs->isPushedDown()) {
-      *_out << " + PUSHDOWN";
+      fprintf(_out, " + PUSHDOWN");
     }
 
     if (_version >= defout::DEF_5_6) {
       if (obs->hasEffectiveWidth()) {
         int w = defdist(obs->getEffectiveWidth());
-        *_out << " + DESIGNRULEWIDTH " << w;
+        fprintf(_out, " + DESIGNRULEWIDTH %d", w);
       } else if (obs->hasMinSpacing()) {
         int s = defdist(obs->getMinSpacing());
-        *_out << " + SPACING " << s;
+        fprintf(_out, " + SPACING %d", s);
       }
     }
 
@@ -1265,8 +1328,7 @@ void defout_impl::writeBlockages(dbBlock* block)
     int x2 = defdist(bbox->xMax());
     int y2 = defdist(bbox->yMax());
 
-    *_out << " RECT ( " << x1 << " " << y1 << " ) ( " << x2 << " " << y2
-          << " ) ;\n";
+    fprintf(_out, " RECT ( %d %d ) ( %d %d ) ;\n", x1, y1, x2, y2);
   }
 
   std::vector<dbBlockage*> sorted_blockages(blockages.begin(), blockages.end());
@@ -1288,30 +1350,30 @@ void defout_impl::writeBlockages(dbBlock* block)
 
     if (first) {
       first = false;
-      *_out << "BLOCKAGES " << bcnt << " ;\n";
+      fprintf(_out, "BLOCKAGES %d ;\n", bcnt);
     }
 
-    *_out << "    - PLACEMENT";
+    fprintf(_out, "    - PLACEMENT");
 
     if (blk->isSoft()) {
-      *_out << " + SOFT";
+      fprintf(_out, " + SOFT");
     }
 
     if (blk->getMaxDensity() > 0) {
-      *_out << " + PARTIAL " << fmt::format("{:f}", blk->getMaxDensity());
+      fprintf(_out, " + PARTIAL %f", blk->getMaxDensity());
     }
 
     if (inst) {
       if (_use_net_inst_ids) {
-        *_out << " + COMPONENT I" << inst->getId();
+        fprintf(_out, " + COMPONENT I%u", inst->getId());
       } else {
         std::string iname = inst->getName();
-        *_out << " + COMPONENT " << iname;
+        fprintf(_out, " + COMPONENT %s", iname.c_str());
       }
     }
 
     if (blk->isPushedDown()) {
-      *_out << " + PUSHDOWN";
+      fprintf(_out, " + PUSHDOWN");
     }
 
     dbBox* bbox = blk->getBBox();
@@ -1320,12 +1382,11 @@ void defout_impl::writeBlockages(dbBlock* block)
     int x2 = defdist(bbox->xMax());
     int y2 = defdist(bbox->yMax());
 
-    *_out << " RECT ( " << x1 << " " << y1 << " ) ( " << x2 << " " << y2
-          << " ) ;\n";
+    fprintf(_out, " RECT ( %d %d ) ( %d %d ) ;\n", x1, y1, x2, y2);
   }
 
   if (!first) {
-    *_out << "END BLOCKAGES\n";
+    fprintf(_out, "END BLOCKAGES\n");
   }
 }
 
@@ -1338,18 +1399,18 @@ void defout_impl::writeFills(dbBlock* block)
     return;
   }
 
-  *_out << "FILLS " << num_fills << " ;\n";
+  fprintf(_out, "FILLS %d ;\n", num_fills);
 
   for (dbFill* fill : fills) {
-    *_out << "    - LAYER " << fill->getTechLayer()->getName();
+    fprintf(_out, "    - LAYER %s", fill->getTechLayer()->getName().c_str());
 
     uint mask = fill->maskNumber();
     if (mask != 0) {
-      *_out << " + MASK " << mask;
+      fprintf(_out, " + MASK %u", mask);
     }
 
     if (fill->needsOPC()) {
-      *_out << " + OPC";
+      fprintf(_out, " + OPC");
     }
 
     Rect r;
@@ -1360,11 +1421,10 @@ void defout_impl::writeFills(dbBlock* block)
     int x2 = defdist(r.xMax());
     int y2 = defdist(r.yMax());
 
-    *_out << " RECT ( " << x1 << " " << y1 << " ) ( " << x2 << " " << y2
-          << " ) ;\n";
+    fprintf(_out, " RECT ( %d %d ) ( %d %d ) ;\n", x1, y1, x2, y2);
   }
 
-  *_out << "END FILLS\n";
+  fprintf(_out, "END FILLS\n");
 }
 
 void defout_impl::writeNets(dbBlock* block)
@@ -1405,7 +1465,7 @@ void defout_impl::writeNets(dbBlock* block)
   }
 
   if (snet_cnt > 0) {
-    *_out << "SPECIALNETS " << snet_cnt << " ;\n";
+    fprintf(_out, "SPECIALNETS %d ;\n", snet_cnt);
 
     for (dbNet* net : sorted_nets) {
       if (_select_net_map && !(*_select_net_map)[net]) {
@@ -1416,10 +1476,10 @@ void defout_impl::writeNets(dbBlock* block)
       }
     }
 
-    *_out << "END SPECIALNETS\n";
+    fprintf(_out, "END SPECIALNETS\n");
   }
 
-  *_out << "NETS " << net_cnt << " ;\n";
+  fprintf(_out, "NETS %d ;\n", net_cnt);
 
   for (dbNet* net : sorted_nets) {
     if (_select_net_map && !(*_select_net_map)[net]) {
@@ -1431,7 +1491,7 @@ void defout_impl::writeNets(dbBlock* block)
     }
   }
 
-  *_out << "END NETS\n";
+  fprintf(_out, "END NETS\n");
 }
 
 void defout_impl::writeSNet(dbNet* net)
@@ -1439,19 +1499,19 @@ void defout_impl::writeSNet(dbNet* net)
   dbSet<dbITerm> iterms = net->getITerms();
 
   if (_use_net_inst_ids) {
-    *_out << "    - N" << net->getId();
+    fprintf(_out, "    - N%u", net->getId());
   } else {
     std::string nname = net->getName();
-    *_out << "    - " << nname;
+    fprintf(_out, "    - %s", nname.c_str());
   }
 
   int i = 0;
 
   for (dbBTerm* bterm : net->getBTerms()) {
     if ((++i & 7) == 0) {
-      *_out << "\n    ";
+      fprintf(_out, "\n    ");
     }
-    *_out << " ( PIN " << bterm->getName() << " )";
+    fprintf(_out, " ( PIN %s )", bterm->getName().c_str());
   }
 
   char ttname[max_name_length];
@@ -1469,31 +1529,31 @@ void defout_impl::writeSNet(dbNet* net)
     char* mtname = mterm->getName(inst, &ttname[0]);
     if (net->isWildConnected()) {
       if (wild_names.find(mtname) == wild_names.end()) {
-        *_out << " ( * " << mtname << " )";
+        fprintf(_out, " ( * %s )", mtname);
         ++i;
         wild_names.insert(mtname);
       }
     } else {
       if ((++i & 7) == 0) {
         if (_use_net_inst_ids) {
-          *_out << "\n      ( I" << inst->getId() << " " << mtname << " )";
+          fprintf(_out, "\n      ( I%u %s )", inst->getId(), mtname);
         } else {
           std::string iname = inst->getName();
-          *_out << "\n      ( " << iname << " " << mtname << " )";
+          fprintf(_out, "\n      ( %s %s )", iname.c_str(), mtname);
         }
       } else {
         if (_use_net_inst_ids) {
-          *_out << " ( I" << inst->getId() << " " << mtname << " )";
+          fprintf(_out, " ( I%u %s )", inst->getId(), mtname);
         } else {
           std::string iname = inst->getName();
-          *_out << " ( " << iname << " " << mtname << " )";
+          fprintf(_out, " ( %s %s )", iname.c_str(), mtname);
         }
       }
     }
   }
 
   const char* sig_type = defSigType(net->getSigType());
-  *_out << " + USE " << sig_type;
+  fprintf(_out, " + USE %s", sig_type);
 
   _non_default_rule = nullptr;
   dbSet<dbSWire> swires = net->getSWires();
@@ -1510,19 +1570,19 @@ void defout_impl::writeSNet(dbNet* net)
       break;
 
     case dbSourceType::NETLIST:
-      *_out << " + SOURCE NETLIST";
+      fprintf(_out, " + SOURCE NETLIST");
       break;
 
     case dbSourceType::DIST:
-      *_out << " + SOURCE DIST";
+      fprintf(_out, " + SOURCE DIST");
       break;
 
     case dbSourceType::USER:
-      *_out << " + SOURCE USER";
+      fprintf(_out, " + SOURCE USER");
       break;
 
     case dbSourceType::TIMING:
-      *_out << " + SOURCE TIMING";
+      fprintf(_out, " + SOURCE TIMING");
       break;
 
     case dbSourceType::TEST:
@@ -1530,19 +1590,19 @@ void defout_impl::writeSNet(dbNet* net)
   }
 
   if (net->hasFixedBump()) {
-    *_out << " + FIXEDBUMP";
+    fprintf(_out, " + FIXEDBUMP");
   }
 
   if (net->getWeight() != 1) {
-    *_out << " + WEIGHT " << net->getWeight();
+    fprintf(_out, " + WEIGHT %d", net->getWeight());
   }
 
   if (hasProperties(net, SPECIALNET)) {
-    *_out << " + PROPERTY ";
+    fprintf(_out, " + PROPERTY ");
     writeProperties(net);
   }
 
-  *_out << " ;\n";
+  fprintf(_out, " ;\n");
 }
 
 void defout_impl::writeWire(dbWire* wire)
@@ -1578,13 +1638,14 @@ void defout_impl::writeWire(dbWire* wire)
         }
 
         if ((path_cnt == 0) || (wire_type != prev_wire_type)) {
-          *_out << "\n      + " << wire_type.getString() << " " << lname;
+          fprintf(
+              _out, "\n      + %s %s", wire_type.getString(), lname.c_str());
         } else {
-          *_out << "\n      NEW " << lname;
+          fprintf(_out, "\n      NEW %s", lname.c_str());
         }
 
         if (_non_default_rule && (decode.peek() != dbWireDecoder::RULE)) {
-          *_out << " TAPER";
+          fprintf(_out, " TAPER");
         }
 
         prev_wire_type = wire_type;
@@ -1600,7 +1661,7 @@ void defout_impl::writeWire(dbWire* wire)
         y = defdist(y);
 
         if ((++point_cnt & 7) == 0) {
-          *_out << "\n    ";
+          fprintf(_out, "\n    ");
         }
 
         std::string mask_statement;
@@ -1609,11 +1670,11 @@ void defout_impl::writeWire(dbWire* wire)
         }
 
         if (point_cnt == 1) {
-          *_out << " ( " << x << " " << y << " )";
+          fprintf(_out, " ( %d %d )", x, y);
         } else if (x == prev_x) {
-          *_out << mask_statement << " ( * " << y << " )";
+          fprintf(_out, "%s ( * %d )", mask_statement.c_str(), y);
         } else if (y == prev_y) {
-          *_out << mask_statement << " ( " << x << " * )";
+          fprintf(_out, "%s ( %d * )", mask_statement.c_str(), x);
         }
 
         prev_x = x;
@@ -1629,17 +1690,17 @@ void defout_impl::writeWire(dbWire* wire)
         ext = defdist(ext);
 
         if ((++point_cnt & 7) == 0) {
-          *_out << "\n    ";
+          fprintf(_out, "\n    ");
         }
 
         if (point_cnt == 1) {
-          *_out << " ( " << x << " " << y << " " << ext << " )";
+          fprintf(_out, " ( %d %d %d )", x, y, ext);
         } else if ((x == prev_x) && (y == prev_y)) {
-          *_out << " ( * * " << ext << " )";
+          fprintf(_out, " ( * * %d )", ext);
         } else if (x == prev_x) {
-          *_out << " ( * " << y << " " << ext << " )";
+          fprintf(_out, " ( * %d %d )", y, ext);
         } else if (y == prev_y) {
-          *_out << " ( " << x << " * " << ext << " )";
+          fprintf(_out, " ( %d * %d )", x, ext);
         }
 
         prev_x = x;
@@ -1649,7 +1710,7 @@ void defout_impl::writeWire(dbWire* wire)
 
       case dbWireDecoder::VIA: {
         if ((++point_cnt & 7) == 0) {
-          *_out << "\n    ";
+          fprintf(_out, "\n    ");
         }
 
         dbVia* via = decode.getVia();
@@ -1671,18 +1732,21 @@ void defout_impl::writeWire(dbWire* wire)
             vname = via->getBlockVia()->getName();
           }
 
-          *_out << " " << via_mask_statement << vname << " "
-                << defOrient(via->getOrient());
+          fprintf(_out,
+                  " %s%s %s",
+                  via_mask_statement.c_str(),
+                  vname.c_str(),
+                  defOrient(via->getOrient()));
         } else {
           std::string vname = via->getName();
-          *_out << " " << via_mask_statement << vname;
+          fprintf(_out, " %s%s", via_mask_statement.c_str(), vname.c_str());
         }
         break;
       }
 
       case dbWireDecoder::TECH_VIA: {
         if ((++point_cnt & 7) == 0) {
-          *_out << "\n    ";
+          fprintf(_out, "\n    ");
         }
 
         std::string via_mask_statement;
@@ -1695,7 +1759,7 @@ void defout_impl::writeWire(dbWire* wire)
 
         dbTechVia* via = decode.getTechVia();
         std::string vname = via->getName();
-        *_out << " " << via_mask_statement << vname;
+        fprintf(_out, " %s%s", via_mask_statement.c_str(), vname.c_str());
         break;
       }
 
@@ -1710,10 +1774,10 @@ void defout_impl::writeWire(dbWire* wire)
 
           if (_non_default_rule == nullptr) {
             std::string name = taper_rule->getName();
-            *_out << " TAPERRULE " << name << " ";
+            fprintf(_out, " TAPERRULE %s ", name.c_str());
           } else if (_non_default_rule != taper_rule) {
             std::string name = taper_rule->getName();
-            *_out << " TAPERRULE " << name << " ";
+            fprintf(_out, " TAPERRULE %s ", name.c_str());
           }
         }
         break;
@@ -1721,7 +1785,7 @@ void defout_impl::writeWire(dbWire* wire)
 
       case dbWireDecoder::RECT: {
         if ((++point_cnt & 7) == 0) {
-          *_out << "\n    ";
+          fprintf(_out, "\n    ");
         }
 
         int deltaX1;
@@ -1734,12 +1798,21 @@ void defout_impl::writeWire(dbWire* wire)
         deltaX2 = defdist(deltaX2);
         deltaY2 = defdist(deltaY2);
         if (color.has_value()) {
-          *_out << " RECT MASK " << color.value() << " ( " << deltaX1 << " "
-                << deltaY1 << " " << deltaX2 << " " << deltaY2 << " ) ";
+          fprintf(_out,
+                  " RECT MASK %d ( %d %d %d %d ) ",
+                  color.value(),
+                  deltaX1,
+                  deltaY1,
+                  deltaX2,
+                  deltaY2);
 
         } else {
-          *_out << " RECT ( " << deltaX1 << " " << deltaY1 << " " << deltaX2
-                << " " << deltaY2 << " ) ";
+          fprintf(_out,
+                  " RECT ( %d %d %d %d ) ",
+                  deltaX1,
+                  deltaY1,
+                  deltaX2,
+                  deltaY2);
         }
         break;
       }
@@ -1754,31 +1827,31 @@ void defout_impl::writeSWire(dbSWire* wire)
 {
   switch (wire->getWireType().getValue()) {
     case dbWireType::COVER:
-      *_out << "\n      + COVER";
+      fprintf(_out, "\n      + COVER");
       break;
 
     case dbWireType::FIXED:
-      *_out << "\n      + FIXED";
+      fprintf(_out, "\n      + FIXED");
       break;
 
     case dbWireType::ROUTED:
-      *_out << "\n      + ROUTED";
+      fprintf(_out, "\n      + ROUTED");
       break;
 
     case dbWireType::SHIELD: {
       dbNet* s = wire->getShield();
       if (s) {
         std::string n = s->getName();
-        *_out << "\n      + SHIELD " << n;
+        fprintf(_out, "\n      + SHIELD %s", n.c_str());
       } else {
         _logger->warn(utl::ODB, 174, "warning: missing shield net");
-        *_out << "\n      + ROUTED";
+        fprintf(_out, "\n      + ROUTED");
       }
       break;
     }
 
     default:
-      *_out << "\n      + ROUTED";
+      fprintf(_out, "\n      + ROUTED");
       break;
   }
 
@@ -1790,7 +1863,7 @@ void defout_impl::writeSWire(dbSWire* wire)
     dbSBox* box = *itr;
 
     if (i++ > 0) {
-      *_out << "\n      NEW";
+      fprintf(_out, "\n      NEW");
     }
 
     if (!box->isVia()) {
@@ -1820,11 +1893,20 @@ void defout_impl::writeSWire(dbSWire* wire)
       }
 
       if (type.getValue() == dbWireShapeType::NONE) {
-        *_out << " " << ln << " 0 ( " << defdist(x) << " " << defdist(y)
-              << " ) " << vn;
+        fprintf(_out,
+                " %s 0 ( %d %d ) %s",
+                ln.c_str(),
+                defdist(x),
+                defdist(y),
+                vn.c_str());
       } else {
-        *_out << " " << ln << " 0 + SHAPE " << type.getString() << " ( "
-              << defdist(x) << " " << defdist(y) << " ) " << vn;
+        fprintf(_out,
+                " %s 0 + SHAPE %s ( %d %d ) %s",
+                ln.c_str(),
+                type.getString(),
+                defdist(x),
+                defdist(y),
+                vn.c_str());
       }
     } else if (box->getBlockVia()) {
       dbWireShapeType type = box->getWireShapeType();
@@ -1850,11 +1932,20 @@ void defout_impl::writeSWire(dbSWire* wire)
       }
 
       if (type.getValue() == dbWireShapeType::NONE) {
-        *_out << " " << ln << " 0 ( " << defdist(x) << " " << defdist(y)
-              << " ) " << vn;
+        fprintf(_out,
+                " %s 0 ( %d %d ) %s",
+                ln.c_str(),
+                defdist(x),
+                defdist(y),
+                vn.c_str());
       } else {
-        *_out << " " << ln << " 0 + SHAPE " << type.getString() << " ( "
-              << defdist(x) << " " << defdist(y) << " ) " << vn;
+        fprintf(_out,
+                " %s 0 + SHAPE %s ( %d %d ) %s",
+                ln.c_str(),
+                type.getString(),
+                defdist(x),
+                defdist(y),
+                vn.c_str());
       }
     }
   }
@@ -1912,7 +2003,7 @@ void defout_impl::writeSpecialPath(dbSBox* box)
         y2 -= dw;
         assert(y1 == y2);
       } else {
-        throw std::runtime_error("odd dimension in both directions");
+        throw ZException("odd dimension in both directions");
       }
 
       break;
@@ -1945,7 +2036,7 @@ void defout_impl::writeSpecialPath(dbSBox* box)
       break;
     }
     default:
-      throw std::runtime_error("unknown direction");
+      throw ZException("unknown direction");
       break;
   }
 
@@ -1953,24 +2044,47 @@ void defout_impl::writeSpecialPath(dbSBox* box)
 
   if (mask != 0) {
     if (type.getValue() == dbWireShapeType::NONE) {
-      *_out << " " << ln << " " << defdist(w) << " ( " << defdist(x1) << " "
-            << defdist(y1) << " ) MASK " << mask << " ( " << defdist(x2) << " "
-            << defdist(y2) << " )";
+      fprintf(_out,
+              " %s %d ( %d %d ) MASK %d ( %d %d )",
+              ln.c_str(),
+              defdist(w),
+              defdist(x1),
+              defdist(y1),
+              mask,
+              defdist(x2),
+              defdist(y2));
     } else {
-      *_out << " " << ln << " " << defdist(w) << " + SHAPE " << type.getString()
-            << " + MASK " << mask << " + ( " << defdist(x1) << " "
-            << defdist(y1) << " ) ( " << defdist(x2) << " " << defdist(y2)
-            << " )";
+      fprintf(_out,
+              " %s %d + SHAPE %s + MASK %d + ( %d %d ) ( %d %d )",
+              ln.c_str(),
+              defdist(w),
+              type.getString(),
+              mask,
+              defdist(x1),
+              defdist(y1),
+              defdist(x2),
+              defdist(y2));
     }
   } else {
     if (type.getValue() == dbWireShapeType::NONE) {
-      *_out << " " << ln << " " << defdist(w) << " ( " << defdist(x1) << " "
-            << defdist(y1) << " ) ( " << defdist(x2) << " " << defdist(y2)
-            << " )";
+      fprintf(_out,
+              " %s %d ( %d %d ) ( %d %d )",
+              ln.c_str(),
+              defdist(w),
+              defdist(x1),
+              defdist(y1),
+              defdist(x2),
+              defdist(y2));
     } else {
-      *_out << " " << ln << " " << defdist(w) << " + SHAPE " << type.getString()
-            << " ( " << defdist(x1) << " " << defdist(y1) << " ) ( "
-            << defdist(x2) << " " << defdist(y2) << " )";
+      fprintf(_out,
+              " %s %d + SHAPE %s ( %d %d ) ( %d %d )",
+              ln.c_str(),
+              defdist(w),
+              type.getString(),
+              defdist(x1),
+              defdist(y1),
+              defdist(x2),
+              defdist(y2));
     }
   }
 }
@@ -1978,10 +2092,10 @@ void defout_impl::writeSpecialPath(dbSBox* box)
 void defout_impl::writeNet(dbNet* net)
 {
   if (_use_net_inst_ids) {
-    *_out << "    - N" << net->getId();
+    fprintf(_out, "    - N%u", net->getId());
   } else {
     std::string nname = net->getName();
-    *_out << "    - " << nname;
+    fprintf(_out, "    - %s", nname.c_str());
   }
 
   char ttname[max_name_length];
@@ -1990,9 +2104,9 @@ void defout_impl::writeNet(dbNet* net)
   for (dbBTerm* bterm : net->getBTerms()) {
     const char* pin_name = bterm->getConstName();
     if ((++i & 7) == 0) {
-      *_out << "\n     ";
+      fprintf(_out, "\n     ");
     }
-    *_out << " ( PIN " << pin_name << " )";
+    fprintf(_out, " ( PIN %s )", pin_name);
   }
 
   for (dbITerm* iterm : net->getITerms()) {
@@ -2009,29 +2123,29 @@ void defout_impl::writeNet(dbNet* net)
     char* mtname = mterm->getName(inst, &ttname[0]);
 
     if ((++i & 7) == 0) {
-      *_out << "\n     ";
+      fprintf(_out, "\n     ");
     }
 
     if (_use_net_inst_ids) {
-      *_out << " ( I" << inst->getId() << " " << mtname << " )";
+      fprintf(_out, " ( I%u %s )", inst->getId(), mtname);
     } else {
       std::string iname = inst->getName();
-      *_out << " ( " << iname << " " << mtname << " )";
+      fprintf(_out, " ( %s %s )", iname.c_str(), mtname);
     }
   }
 
   if (net->getXTalkClass() != 0) {
-    *_out << " + XTALK " << net->getXTalkClass();
+    fprintf(_out, " + XTALK %d", net->getXTalkClass());
   }
 
   const char* sig_type = defSigType(net->getSigType());
-  *_out << " + USE " << sig_type;
+  fprintf(_out, " + USE %s", sig_type);
 
   _non_default_rule = net->getNonDefaultRule();
 
   if (_non_default_rule) {
     std::string n = _non_default_rule->getName();
-    *_out << " + NONDEFAULTRULE " << n;
+    fprintf(_out, " + NONDEFAULTRULE %s", n.c_str());
   }
 
   dbWire* wire = net->getWire();
@@ -2047,40 +2161,40 @@ void defout_impl::writeNet(dbNet* net)
       break;
 
     case dbSourceType::NETLIST:
-      *_out << " + SOURCE NETLIST";
+      fprintf(_out, " + SOURCE NETLIST");
       break;
 
     case dbSourceType::DIST:
-      *_out << " + SOURCE DIST";
+      fprintf(_out, " + SOURCE DIST");
       break;
 
     case dbSourceType::USER:
-      *_out << " + SOURCE USER";
+      fprintf(_out, " + SOURCE USER");
       break;
 
     case dbSourceType::TIMING:
-      *_out << " + SOURCE TIMING";
+      fprintf(_out, " + SOURCE TIMING");
       break;
 
     case dbSourceType::TEST:
-      *_out << " + SOURCE TEST";
+      fprintf(_out, " + SOURCE TEST");
       break;
   }
 
   if (net->hasFixedBump()) {
-    *_out << " + FIXEDBUMP";
+    fprintf(_out, " + FIXEDBUMP");
   }
 
   if (net->getWeight() != 1) {
-    *_out << " + WEIGHT " << net->getWeight();
+    fprintf(_out, " + WEIGHT %d", net->getWeight());
   }
 
   if (hasProperties(net, NET)) {
-    *_out << " + PROPERTY ";
+    fprintf(_out, " + PROPERTY ");
     writeProperties(net);
   }
 
-  *_out << " ;\n";
+  fprintf(_out, " ;\n");
 }
 
 //
@@ -2095,7 +2209,7 @@ void defout_impl::writePropertyDefinitions(dbBlock* block)
     return;
   }
 
-  *_out << "PROPERTYDEFINITIONS\n";
+  fprintf(_out, "PROPERTYDEFINITIONS\n");
 
   dbSet<dbProperty> obj_types = dbProperty::getProperties(defs);
   dbSet<dbProperty>::iterator objitr;
@@ -2138,15 +2252,15 @@ void defout_impl::writePropertyDefinitions(dbBlock* block)
       defs_map[std::string(name)] = true;
       switch (prop->getType()) {
         case dbProperty::STRING_PROP:
-          *_out << objType << " " << name << " STRING ";
+          fprintf(_out, "%s %s STRING ", objType.c_str(), name.c_str());
           break;
 
         case dbProperty::INT_PROP:
-          *_out << objType << " " << name << " INTEGER ";
+          fprintf(_out, "%s %s INTEGER ", objType.c_str(), name.c_str());
           break;
 
         case dbProperty::DOUBLE_PROP:
-          *_out << objType << " " << name << " REAL ";
+          fprintf(_out, "%s %s REAL ", objType.c_str(), name.c_str());
           break;
 
         default:
@@ -2157,7 +2271,7 @@ void defout_impl::writePropertyDefinitions(dbBlock* block)
       dbProperty* maxV = dbProperty::find(prop, "MAX");
 
       if (minV && maxV) {
-        *_out << "RANGE ";
+        fprintf(_out, "RANGE ");
         writePropValue(minV);
         writePropValue(maxV);
       }
@@ -2168,11 +2282,11 @@ void defout_impl::writePropertyDefinitions(dbBlock* block)
         writePropValue(value);
       }
 
-      *_out << ";\n";
+      fprintf(_out, ";\n");
     }
   }
 
-  *_out << "END PROPERTYDEFINITIONS\n";
+  fprintf(_out, "END PROPERTYDEFINITIONS\n");
 }
 
 void defout_impl::writePropValue(dbProperty* prop)
@@ -2181,21 +2295,21 @@ void defout_impl::writePropValue(dbProperty* prop)
     case dbProperty::STRING_PROP: {
       dbStringProperty* p = (dbStringProperty*) prop;
       std::string v = p->getValue();
-      *_out << "\"" << v << "\" ";
+      fprintf(_out, "\"%s\" ", v.c_str());
       break;
     }
 
     case dbProperty::INT_PROP: {
       dbIntProperty* p = (dbIntProperty*) prop;
       int v = p->getValue();
-      *_out << v << " ";
+      fprintf(_out, "%d ", v);
       break;
     }
 
     case dbProperty::DOUBLE_PROP: {
       dbDoubleProperty* p = (dbDoubleProperty*) prop;
       double v = p->getValue();
-      *_out << fmt::format("{:g} ", v);
+      fprintf(_out, "%G ", v);
     }
 
     default:
@@ -2211,12 +2325,12 @@ void defout_impl::writeProperties(dbObject* object)
 
   for (itr = props.begin(); itr != props.end(); ++itr) {
     if (cnt && ((cnt & 3) == 0)) {
-      *_out << "\n    ";
+      fprintf(_out, "\n    ");
     }
 
     dbProperty* prop = *itr;
     std::string name = prop->getName();
-    *_out << name << " ";
+    fprintf(_out, "%s ", name.c_str());
     writePropValue(prop);
   }
 }
@@ -2264,16 +2378,16 @@ void defout_impl::writePinProperties(dbBlock* block)
     return;
   }
 
-  *_out << "PINPROPERTIES " << cnt << " ;\n";
+  fprintf(_out, "PINPROPERTIES %u ;\n", cnt);
 
   for (bitr = bterms.begin(); bitr != bterms.end(); ++bitr) {
     dbBTerm* bterm = *bitr;
 
     if (hasProperties(bterm, COMPONENTPIN)) {
       std::string name = bterm->getName();
-      *_out << "  - PIN " << name << " + PROPERTY ";
+      fprintf(_out, "  - PIN %s + PROPERTY ", name.c_str());
       writeProperties(bterm);
-      *_out << " ;\n";
+      fprintf(_out, " ;\n");
     }
   }
 
@@ -2287,13 +2401,13 @@ void defout_impl::writePinProperties(dbBlock* block)
       std::string iname = inst->getName();
       // std::string mtname = mterm->getName();
       char* mtname = mterm->getName(inst, &ttname[0]);
-      *_out << "  - " << iname << " " << mtname << " + PROPERTY ";
+      fprintf(_out, "  - %s %s + PROPERTY ", iname.c_str(), mtname);
       writeProperties(iterm);
-      *_out << " ;\n";
+      fprintf(_out, " ;\n");
     }
   }
 
-  *_out << "END PINPROPERTIES\n";
+  fprintf(_out, "END PINPROPERTIES\n");
 }
 
 }  // namespace odb

@@ -10,3 +10,4 @@ repair_tie_fanout sky130_fd_sc_hd__conb_1/LO
 repair_tie_fanout sky130_fd_sc_hd__conb_1/HI
 check_ties LOGIC1_X1
 report_ties LOGIC1_X1
+

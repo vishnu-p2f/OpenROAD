@@ -329,7 +329,7 @@ class PinSetWidget : public QWidget
 
   void setPins(const std::set<const sta::Pin*>& pins);
 
-  std::set<const sta::Pin*> getPins() const;
+  const std::set<const sta::Pin*> getPins() const;
 
   bool isAddMode() const { return add_mode_; }
   bool isRemoveMode() const { return !isAddMode(); }
@@ -394,9 +394,12 @@ class TimingControlsDialog : public QDialog
   void setThruPin(const std::vector<std::set<const sta::Pin*>>& pins);
   void setToPin(const std::set<const sta::Pin*>& pins) { to_->setPins(pins); }
 
-  std::set<const sta::Pin*> getFromPins() const { return from_->getPins(); }
-  std::vector<std::set<const sta::Pin*>> getThruPins() const;
-  std::set<const sta::Pin*> getToPins() const { return to_->getPins(); }
+  const std::set<const sta::Pin*> getFromPins() const
+  {
+    return from_->getPins();
+  }
+  const std::vector<std::set<const sta::Pin*>> getThruPins() const;
+  const std::set<const sta::Pin*> getToPins() const { return to_->getPins(); }
 
   const sta::Pin* convertTerm(Gui::odbTerm term) const;
 

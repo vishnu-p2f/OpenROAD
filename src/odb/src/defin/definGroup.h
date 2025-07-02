@@ -12,9 +12,14 @@ class dbGroup;
 
 class definGroup : public definBase
 {
-  dbGroup* cur_group_{nullptr};
+  dbGroup* cur_group_;
 
  public:
+  definGroup();
+  ~definGroup() override;
+
+  void init() override;
+
   virtual void begin(const char* name);
   virtual void region(const char* region_name);
   virtual void inst(const char* inst);

@@ -17,7 +17,6 @@ cc_library(
     srcs = [
         "src/stub.cpp",
         "src/stub_heatMap.cpp",
-        ":tcl",
     ],
     hdrs = [
         "include/gui/MakeGui.h",

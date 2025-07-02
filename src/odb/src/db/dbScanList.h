@@ -12,6 +12,8 @@ class dbIStream;
 class dbOStream;
 class _dbDatabase;
 class _dbScanInst;
+template <class T>
+class dbTable;
 
 class _dbScanList : public _dbObject
 {

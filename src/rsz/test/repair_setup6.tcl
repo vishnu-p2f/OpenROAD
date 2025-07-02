@@ -1,8 +1,6 @@
 # repair_timing -setup with global route parasitics
 source "helpers.tcl"
-if { ![info exists repair_args] } {
-  set repair_args {}
-}
+if {[expr {![info exists repair_args]}]} { set repair_args {} }
 read_liberty Nangate45/Nangate45_typ.lib
 read_lef Nangate45/Nangate45.lef
 read_def repair_setup1.def

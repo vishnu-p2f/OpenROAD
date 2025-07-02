@@ -123,7 +123,8 @@ _dbInst::_dbInst(_dbDatabase*, const _dbInst& i)
       pin_access_idx_(i.pin_access_idx_)
 {
   if (i._name) {
-    _name = safe_strdup(i._name);
+    _name = strdup(i._name);
+    ZALLOCATED(_name);
   }
 }
 
@@ -364,7 +365,8 @@ bool dbInst::rename(const char* name)
 
   block->_inst_hash.remove(inst);
   free((void*) inst->_name);
-  inst->_name = safe_strdup(name);
+  inst->_name = strdup(name);
+  ZALLOCATED(inst->_name);
   block->_inst_hash.insert(inst);
 
   return true;
@@ -803,16 +805,7 @@ dbITerm* dbInst::findITerm(const char* name)
     return nullptr;
   }
 
-  // sta may callback from inDbITermDestroy to find another iterm of
-  // the same instance (eg Latches::latchDtoQEnable).  We have to
-  // check if the entry is valid here as that iterm may already have
-  // been destroyed!
-
-  dbId<_dbITerm> id = inst->_iterms[mterm->_order_id];
-  if (!id.isValid()) {
-    return nullptr;
-  }
-  return (dbITerm*) block->_iterm_tbl->getPtr(id);
+  return (dbITerm*) block->_iterm_tbl->getPtr(inst->_iterms[mterm->_order_id]);
 }
 
 dbRegion* dbInst::getRegion()
@@ -1275,7 +1268,8 @@ dbInst* dbInst::create(dbBlock* block_,
     block->_journal->endAction();
   }
 
-  inst->_name = safe_strdup(name_);
+  inst->_name = strdup(name_);
+  ZALLOCATED(inst->_name);
   inst->_inst_hdr = inst_hdr->getOID();
   block->_inst_hash.insert(inst);
   inst_hdr->_inst_cnt++;
@@ -1417,8 +1411,7 @@ void dbInst::destroy(dbInst* inst_)
   // Delete these in reverse order so undo creates the in
   // the correct order.
   for (i = 0; i < n; ++i) {
-    const int index = n - 1 - i;
-    dbId<_dbITerm> id = inst->_iterms[index];
+    dbId<_dbITerm> id = inst->_iterms[n - 1 - i];
     _dbITerm* _iterm = block->_iterm_tbl->getPtr(id);
     dbITerm* iterm = (dbITerm*) _iterm;
     iterm->disconnect();
@@ -1443,9 +1436,8 @@ void dbInst::destroy(dbInst* inst_)
 
     dbProperty::destroyProperties(_iterm);
     block->_iterm_tbl->destroy(_iterm);
-    inst->_iterms[index] = dbId<_dbITerm>();  // clear
+    inst->_iterms.pop_back();
   }
-  inst->_iterms.clear();
 
   dbModule* module = inst_->getModule();
   if (module) {

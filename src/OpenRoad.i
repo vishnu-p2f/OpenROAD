@@ -584,20 +584,12 @@ std::string get_docs_path()
   return ord->getDocsPath();
 }
 
-void report_each_net_hpwl()
-{
-  dbDatabase *db = OpenRoad::openRoad()->getDb();
-  dbBlock *block = db->getChip()->getBlock();
-  odb::WireLengthEvaluator w(block);
-  w.reportEachNetHpwl(getLogger());
-}
-
 void report_hpwl()
 {
   dbDatabase *db = OpenRoad::openRoad()->getDb();
   dbBlock *block = db->getChip()->getBlock();
   odb::WireLengthEvaluator w(block);
-  w.reportHpwl(getLogger());
+  w.report(getLogger());
 }
 
 }

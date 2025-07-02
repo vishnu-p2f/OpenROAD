@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "dbCore.h"
 #include "odb/dbId.h"
 #include "odb/dbIterator.h"
 #include "odb/odb.h"
@@ -12,17 +11,18 @@ namespace odb {
 
 class _dbBox;
 class _dbPolygon;
+template <class T>
+class dbTable;
 
-template <uint page_size>
 class dbBoxItr : public dbIterator
 {
  protected:
-  dbTable<_dbBox, page_size>* _box_tbl;
-  dbTable<_dbPolygon, page_size>* _pbox_tbl;
+  dbTable<_dbBox>* _box_tbl;
+  dbTable<_dbPolygon>* _pbox_tbl;
 
  public:
-  dbBoxItr(dbTable<_dbBox, page_size>* box_tbl,
-           dbTable<_dbPolygon, page_size>* pbox_tbl,
+  dbBoxItr(dbTable<_dbBox>* box_tbl,
+           dbTable<_dbPolygon>* pbox_tbl,
            bool include_polygons)
   {
     _box_tbl = box_tbl;

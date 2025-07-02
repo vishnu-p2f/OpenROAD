@@ -10,6 +10,9 @@
 #include "dbCore.h"
 #include "dbITerm.h"
 #include "odb/odb.h"
+// User Code Begin Includes
+#include <variant>
+// User Code End Includes
 
 namespace odb {
 class dbIStream;

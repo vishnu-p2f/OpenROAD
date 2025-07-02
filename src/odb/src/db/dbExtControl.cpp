@@ -30,7 +30,7 @@ dbExtControl::dbExtControl()
   _useDbSdb = true;
   _CCnoPowerSource = 0;
   _CCnoPowerTarget = 0;
-  _usingMetalPlanes = false;
+  _usingMetalPlanes = 0;
 }
 
 dbOStream& operator<<(dbOStream& stream, const dbExtControl& extControl)

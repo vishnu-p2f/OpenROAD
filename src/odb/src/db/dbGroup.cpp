@@ -449,7 +449,8 @@ dbGroup* dbGroup::create(dbBlock* block, const char* name)
     return nullptr;
   }
   _dbGroup* _group = _block->_group_tbl->create();
-  _group->_name = safe_strdup(name);
+  _group->_name = strdup(name);
+  ZALLOCATED(_group->_name);
   _group->flags_._type = dbGroupType::PHYSICAL_CLUSTER;
   _block->_group_hash.insert(_group);
   return (dbGroup*) _group;
@@ -463,7 +464,8 @@ dbGroup* dbGroup::create(dbGroup* parent, const char* name)
     return nullptr;
   }
   _dbGroup* _group = _block->_group_tbl->create();
-  _group->_name = safe_strdup(name);
+  _group->_name = strdup(name);
+  ZALLOCATED(_group->_name);
   _group->flags_._type = dbGroupType::PHYSICAL_CLUSTER;
   _block->_group_hash.insert(_group);
   parent->addGroup((dbGroup*) _group);
@@ -478,7 +480,8 @@ dbGroup* dbGroup::create(dbRegion* region, const char* name)
     return nullptr;
   }
   _dbGroup* _group = _block->_group_tbl->create();
-  _group->_name = safe_strdup(name);
+  _group->_name = strdup(name);
+  ZALLOCATED(_group->_name);
   _group->flags_._type = dbGroupType::PHYSICAL_CLUSTER;
   _block->_group_hash.insert(_group);
   region->addGroup((dbGroup*) _group);

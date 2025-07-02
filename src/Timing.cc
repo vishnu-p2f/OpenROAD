@@ -41,7 +41,8 @@ std::pair<odb::dbITerm*, odb::dbBTerm*> Timing::staToDBPin(const sta::Pin* pin)
   odb::dbITerm* iterm;
   odb::dbBTerm* bterm;
   odb::dbModITerm* moditerm;
-  db_network->staToDb(pin, iterm, bterm, moditerm);
+  odb::dbModBTerm* modbterm;
+  db_network->staToDb(pin, iterm, bterm, moditerm, modbterm);
   return std::make_pair(iterm, bterm);
 }
 

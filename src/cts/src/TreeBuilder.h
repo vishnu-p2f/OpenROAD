@@ -157,10 +157,10 @@ class TreeBuilder
   Point<double> legalizeOneBuffer(Point<double> bufferLoc,
                                   const std::string& bufferName);
 
-  void addCandidatePoint(double x,
-                         double y,
-                         Point<double>& point,
-                         std::vector<Point<double>>& candidates)
+  inline void addCandidatePoint(double x,
+                                double y,
+                                Point<double>& point,
+                                std::vector<Point<double>>& candidates)
   {
     point.setX(x);
     point.setY(y);
@@ -174,15 +174,15 @@ class TreeBuilder
   void commitLoc(const Point<double>& bufferLoc);
   void uncommitLoc(const Point<double>& bufferLoc);
   void commitMoveLoc(const Point<double>& oldLoc, const Point<double>& newLoc);
-  bool sinkHasInsertionDelay(const Point<double>& sink)
+  inline bool sinkHasInsertionDelay(const Point<double>& sink)
   {
     return (insertionDelays_.find(sink) != insertionDelays_.end());
   }
-  void setSinkInsertionDelay(const Point<double>& sink, double insDelay)
+  inline void setSinkInsertionDelay(const Point<double>& sink, double insDelay)
   {
     insertionDelays_[sink] = insDelay;
   }
-  double getSinkInsertionDelay(const Point<double>& sink)
+  inline double getSinkInsertionDelay(const Point<double>& sink)
   {
     auto it = insertionDelays_.find(sink);
     if (it != insertionDelays_.end()) {
@@ -194,7 +194,7 @@ class TreeBuilder
     }
     return 0.0;
   }
-  double computeDist(const Point<double>& x, const Point<double>& y)
+  inline double computeDist(const Point<double>& x, const Point<double>& y)
   {
     return x.computeDist(y) + getSinkInsertionDelay(x)
            + getSinkInsertionDelay(y);

@@ -140,7 +140,6 @@ class FlexGCWorker::Impl
 
   // parameters
   gcNet* targetNet_;
-  drNet* targetDRNet_;
   frLayerNum minLayerNum_;
   frLayerNum maxLayerNum_;
 
@@ -310,7 +309,7 @@ class FlexGCWorker::Impl
                                       frCoord currLength,
                                       bool hasRoute);
   void checkMetalShape_rectOnly(gcPin* pin);
-  void checkMetalShape_minArea(gcPin* pin, bool allow_patching);
+  void checkMetalShape_minArea(gcPin* pin);
 
   void checkMetalEndOfLine();
   void checkMetalEndOfLine_main(gcPin* pin);

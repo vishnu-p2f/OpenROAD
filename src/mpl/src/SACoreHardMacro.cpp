@@ -31,8 +31,7 @@ SACoreHardMacro::SACoreHardMacro(PhysicalHierarchy* tree,
                                  int num_perturb_per_step,
                                  unsigned seed,
                                  MplObserver* graphics,
-                                 utl::Logger* logger,
-                                 odb::dbBlock* block)
+                                 utl::Logger* logger)
     : SimulatedAnnealingCore<HardMacro>(tree,
                                         outline,
                                         macros,
@@ -46,8 +45,7 @@ SACoreHardMacro::SACoreHardMacro(PhysicalHierarchy* tree,
                                         num_perturb_per_step,
                                         seed,
                                         graphics,
-                                        logger,
-                                        block)
+                                        logger)
 {
   flip_prob_ = flip_prob;
 }

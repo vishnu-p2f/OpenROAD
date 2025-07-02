@@ -442,11 +442,11 @@ class Grid
   int getPitch() const { return _pitch; }
 
  private:
-  GridTable* _gridtable = nullptr;
-  Track** _trackTable = nullptr;
-  uint* _blockedTrackTable = nullptr;
+  GridTable* _gridtable;
+  Track** _trackTable;
+  uint* _blockedTrackTable;
   int _trackCnt;
-  uint* _subTrackCnt = nullptr;
+  uint* _subTrackCnt;
   int _base;
   int _max;
 

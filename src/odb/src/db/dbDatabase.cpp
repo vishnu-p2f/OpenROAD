@@ -138,14 +138,19 @@ _dbDatabase::_dbDatabase(_dbDatabase* /* unused: db */)
   _logger = nullptr;
   _unique_id = db_unique_id++;
 
-  _chip_tbl = new dbTable<_dbChip, 2>(
-      this, this, (GetObjTbl_t) &_dbDatabase::getObjectTable, dbChipObj);
+  _chip_tbl = new dbTable<_dbChip>(
+      this, this, (GetObjTbl_t) &_dbDatabase::getObjectTable, dbChipObj, 2, 1);
 
-  _gds_lib_tbl = new dbTable<_dbGDSLib, 2>(
-      this, this, (GetObjTbl_t) &_dbDatabase::getObjectTable, dbGdsLibObj);
+  _gds_lib_tbl
+      = new dbTable<_dbGDSLib>(this,
+                               this,
+                               (GetObjTbl_t) &_dbDatabase::getObjectTable,
+                               dbGdsLibObj,
+                               2,
+                               1);
 
-  _tech_tbl = new dbTable<_dbTech, 2>(
-      this, this, (GetObjTbl_t) &_dbDatabase::getObjectTable, dbTechObj);
+  _tech_tbl = new dbTable<_dbTech>(
+      this, this, (GetObjTbl_t) &_dbDatabase::getObjectTable, dbTechObj, 2, 1);
 
   _lib_tbl = new dbTable<_dbLib>(
       this, this, (GetObjTbl_t) &_dbDatabase::getObjectTable, dbLibObj);
@@ -173,14 +178,19 @@ _dbDatabase::_dbDatabase(_dbDatabase* /* unused: db */, int id)
   _logger = nullptr;
   _unique_id = id;
 
-  _chip_tbl = new dbTable<_dbChip, 2>(
-      this, this, (GetObjTbl_t) &_dbDatabase::getObjectTable, dbChipObj);
+  _chip_tbl = new dbTable<_dbChip>(
+      this, this, (GetObjTbl_t) &_dbDatabase::getObjectTable, dbChipObj, 2, 1);
 
-  _gds_lib_tbl = new dbTable<_dbGDSLib, 2>(
-      this, this, (GetObjTbl_t) &_dbDatabase::getObjectTable, dbGdsLibObj);
+  _gds_lib_tbl
+      = new dbTable<_dbGDSLib>(this,
+                               this,
+                               (GetObjTbl_t) &_dbDatabase::getObjectTable,
+                               dbGdsLibObj,
+                               2,
+                               1);
 
-  _tech_tbl = new dbTable<_dbTech, 2>(
-      this, this, (GetObjTbl_t) &_dbDatabase::getObjectTable, dbTechObj);
+  _tech_tbl = new dbTable<_dbTech>(
+      this, this, (GetObjTbl_t) &_dbDatabase::getObjectTable, dbTechObj, 2, 1);
 
   _lib_tbl = new dbTable<_dbLib>(
       this, this, (GetObjTbl_t) &_dbDatabase::getObjectTable, dbLibObj);
@@ -229,34 +239,33 @@ dbIStream& operator>>(dbIStream& stream, _dbDatabase& db)
   stream >> db._magic1;
 
   if (db._magic1 != DB_MAGIC1) {
-    throw std::runtime_error("database file is not an OpenDB Database");
+    throw ZException("database file is not an OpenDB Database");
   }
 
   stream >> db._magic2;
 
   if (db._magic2 != DB_MAGIC2) {
-    throw std::runtime_error("database file is not an OpenDB Database");
+    throw ZException("database file is not an OpenDB Database");
   }
 
   stream >> db._schema_major;
 
   if (db._schema_major != db_schema_major) {
-    throw std::runtime_error("Incompatible database schema revision");
+    throw ZException("Incompatible database schema revision");
   }
 
   stream >> db._schema_minor;
 
   if (db._schema_minor < db_schema_initial) {
-    throw std::runtime_error("incompatible database schema revision");
+    throw ZException("incompatible database schema revision");
   }
 
   if (db._schema_minor > db_schema_minor) {
-    throw std::runtime_error(
-        fmt::format("incompatible database schema revision {}.{} > {}.{}",
-                    db._schema_major,
-                    db._schema_minor,
-                    db_schema_major,
-                    db_schema_minor));
+    throw ZException("incompatible database schema revision %d.%d > %d.%d",
+                     db._schema_major,
+                     db._schema_minor,
+                     db_schema_major,
+                     db_schema_minor);
   }
 
   stream >> db._master_id;
@@ -684,15 +693,11 @@ void dbDatabase::triggerPostReadLef(dbTech* tech, dbLib* library)
   }
 }
 
-void dbDatabase::triggerPostReadDef(dbBlock* block, const bool floorplan)
+void dbDatabase::triggerPostReadDef(dbBlock* block)
 {
   _dbDatabase* db = (_dbDatabase*) this;
   for (dbDatabaseObserver* observer : db->observers_) {
-    if (floorplan) {
-      observer->postReadFloorplanDef(block);
-    } else {
-      observer->postReadDef(block);
-    }
+    observer->postReadDef(block);
   }
 }
 

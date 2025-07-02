@@ -4,7 +4,6 @@
 #pragma once
 
 #include <array>
-#include <boost/container/flat_map.hpp>
 #include <cstdint>
 #include <cstring>
 #include <istream>
@@ -171,18 +170,6 @@ class dbOStream
 
   template <class T1, class T2>
   dbOStream& operator<<(const std::map<T1, T2>& m)
-  {
-    uint sz = m.size();
-    *this << sz;
-    for (auto const& [key, val] : m) {
-      *this << key;
-      *this << val;
-    }
-    return *this;
-  }
-
-  template <class T1, class T2>
-  dbOStream& operator<<(const boost::container::flat_map<T1, T2>& m)
   {
     uint sz = m.size();
     *this << sz;
@@ -393,22 +380,6 @@ class dbIStream
   {
     uint sz;
     *this >> sz;
-    m.clear();
-    for (uint i = 0; i < sz; i++) {
-      T1 key;
-      T2 val;
-      *this >> key;
-      *this >> val;
-      m[key] = val;
-    }
-    return *this;
-  }
-  template <class T1, class T2>
-  dbIStream& operator>>(boost::container::flat_map<T1, T2>& m)
-  {
-    uint sz;
-    *this >> sz;
-    m.clear();
     for (uint i = 0; i < sz; i++) {
       T1 key;
       T2 val;
@@ -423,7 +394,6 @@ class dbIStream
   {
     uint sz;
     *this >> sz;
-    m.clear();
     for (uint i = 0; i < sz; i++) {
       T1 key;
       T2 val;
@@ -439,7 +409,6 @@ class dbIStream
   {
     uint sz;
     *this >> sz;
-    m.clear();
     m.reserve(sz);
     for (uint i = 0; i < sz; i++) {
       T1 val;

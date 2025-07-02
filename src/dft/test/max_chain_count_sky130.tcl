@@ -13,8 +13,8 @@ set_dft_config -max_length 4 -max_chains 1
 
 scan_replace
 
-report_dft_plan -verbose
-execute_dft_plan
+preview_dft -verbose
+insert_dft
 
 set verilog_file [make_result_file max_chain_count_sky130.v]
 write_verilog $verilog_file

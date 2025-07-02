@@ -195,7 +195,8 @@ dbTechLayerCutClassRule* dbTechLayerCutClassRule::create(dbTechLayer* _layer,
   }
   _dbTechLayer* layer = (_dbTechLayer*) _layer;
   _dbTechLayerCutClassRule* newrule = layer->cut_class_rules_tbl_->create();
-  newrule->_name = safe_strdup(name);
+  newrule->_name = strdup(name);
+  ZALLOCATED(newrule->_name);
   layer->cut_class_rules_hash_.insert(newrule);
   return ((dbTechLayerCutClassRule*) newrule);
 }

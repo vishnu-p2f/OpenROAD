@@ -231,7 +231,8 @@ dbPowerSwitch* dbPowerSwitch::create(dbBlock* block, const char* name)
     return nullptr;
   }
   _dbPowerSwitch* ps = _block->_powerswitch_tbl->create();
-  ps->_name = safe_strdup(name);
+  ps->_name = strdup(name);
+  ZALLOCATED(ps->_name);
 
   _block->_powerswitch_hash.insert(ps);
   return (dbPowerSwitch*) ps;
