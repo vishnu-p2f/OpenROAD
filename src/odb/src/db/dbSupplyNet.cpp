@@ -66,6 +66,11 @@ dbIStream& operator>>(dbIStream& stream, _dbSupplyNet& obj)
   stream >> obj._parent;
   stream >> obj._in;
   stream >> obj._out;
+  // custom p2f 
+  stream >> obj._pin;
+  stream >> obj._Iterm;
+  stream >> obj._Mterm;
+  //custom p2f
   return stream;
 }
 
@@ -78,6 +83,11 @@ dbOStream& operator<<(dbOStream& stream, const _dbSupplyNet& obj)
   stream << obj._parent;
   stream << obj._in;
   stream << obj._out;
+  //custom p2f
+  stream << obj._pin;
+  stream << obj._Iterm;
+  stream << obj._Mterm;
+  //custom p2f
   return stream;
 }
 

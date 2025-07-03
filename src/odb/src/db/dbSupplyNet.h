@@ -16,6 +16,12 @@ class dbOStream;
 class _dbDatabase;
 class _dbGroup;
 
+//custom p2f
+class _dbMTerm;
+class _dbBlock;
+class _dbITerm;
+//custom p2f
+
 class _dbSupplyNet : public _dbObject
 {
  public:
@@ -35,6 +41,13 @@ class _dbSupplyNet : public _dbObject
   dbId<_dbSupplyNet> _parent;
   dbId<_dbSupplyNet> _in;
   dbId<_dbSupplyNet> _out;
+
+  //custom p2f
+  dbId<_dbMTerm> _pin;
+  dbId<_dbITerm> _Iterm;
+  dbId<_dbMTerm> _Mterm;
+  //custom p2f
+
 };
 dbIStream& operator>>(dbIStream& stream, _dbSupplyNet& obj);
 dbOStream& operator<<(dbOStream& stream, const _dbSupplyNet& obj);

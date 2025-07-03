@@ -19,6 +19,11 @@ class _dbTechAntennaPinModel;
 class dbIStream;
 class dbOStream;
 
+//custom p2f
+class _dbSupplyNet;
+class _dbBlock;
+//custom p2f
+
 struct _dbMTermFlags
 {
   dbIoType::Value _io_type : 4;
@@ -35,6 +40,10 @@ class _dbMTerm : public _dbObject
   _dbMTermFlags _flags;
   uint _order_id;
   char* _name;
+  //custom p2f
+  dbId<_dbSupplyNet> _supply_net;
+  dbId<_dbMTerm> _prev_mterm;
+  //custom p2f
   dbId<_dbMTerm> _next_entry;
   dbId<_dbMTerm> _next_mterm;
   dbId<_dbMPin> _pins;
@@ -58,6 +67,9 @@ class _dbMTerm : public _dbObject
   bool operator==(const _dbMTerm& rhs) const;
   bool operator!=(const _dbMTerm& rhs) const { return !operator==(rhs); }
   void collectMemInfo(MemInfo& info);
+  //custom p2f
+  void ConnectSupplyNet(_dbSupplyNet* net, _dbBlock* block);
+  //custom p2f
 };
 
 inline _dbMTerm::_dbMTerm(_dbDatabase*)
