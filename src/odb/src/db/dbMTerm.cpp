@@ -20,6 +20,15 @@
 #include "odb/db.h"
 #include "odb/lefout.h"
 
+//custom p2f
+#include "dbBlock.h"
+#include "dbSupplyNet.h"
+#include "dbInst.h"
+#include "dbChip.h"
+#include "dbITerm.h"
+#include "odb/dbBlockCallBackObj.h"
+//custom p2f
+
 namespace odb {
 
 template class dbTable<_dbMTerm>;
@@ -142,6 +151,11 @@ dbOStream& operator<<(dbOStream& stream, const _dbMTerm& mterm)
   stream << mterm._par_met_sidearea;
   stream << mterm._par_cut_area;
   stream << mterm._diffarea;
+  //custom p2f
+  stream << mterm._supply_net;
+  stream << mterm._prev_mterm;
+  //custom p2f
+
   return stream;
 }
 
@@ -161,6 +175,10 @@ dbIStream& operator>>(dbIStream& stream, _dbMTerm& mterm)
   stream >> mterm._par_met_sidearea;
   stream >> mterm._par_cut_area;
   stream >> mterm._diffarea;
+  //custom p2f
+   stream >> mterm._supply_net;
+  stream >> mterm._prev_mterm;
+  //custom p2f
   return stream;
 }
 
@@ -497,4 +515,130 @@ void _dbMTerm::collectMemInfo(MemInfo& info)
       += _diffarea.size() * sizeof(_dbTechAntennaAreaElement);
 }
 
+
+void dbMTerm::connect(dbSupplyNet* supply_net)
+{
+  _dbMTerm* mterm = (_dbMTerm*) this;
+  _dbSupplyNet* net = (_dbSupplyNet*) supply_net;
+  _dbITerm* iterm = (_dbITerm*) mterm->getOwner();
+  _dbInst* inst = (_dbInst*) iterm->getOwner();
+  if (inst == nullptr) {
+    return;
+  }
+  _dbBlock* block = (_dbBlock*) inst->getOwner();
+  // if(block->_journal) {
+  //   debugPrint(block->getImpl()->getLogger(),
+  //             utl::ODB,
+  //             "DB_ECO",
+  //             1,
+  //             "ECO: connect Mterm {} to supply net {}",
+  //             mterm->getId(),
+  //             supply_net->getId());
+  //       block->_journal->beginAction(dbJournal::CONNECT_OBJECT);
+  //       block->_journal->pushParam(dbMTermObj);
+  //       block->_journal->pushParam(mterm->getId());
+  //       block->_journal->pushParam(supply_net->getId());
+  //       block->_journal->endAction();
+  // }   
+  mterm->ConnectSupplyNet(net, block);
+}
+
+/*void _dbMTerm::ConnectSupplyNet(_dbSupplyNet* net, _dbBlock* block)
+{
+  _supply_net = net->getOID();
+  
+  // Update net's MTerm list
+  if (net->_Mterm != 0) {
+    _dbInst* inst = (_dbInst*) block->getOwner();
+    if(inst == nullptr) {
+      return;
+    }
+    _dbMaster* master = (_dbMaster*) inst->getOwner();
+    if(master == nullptr) {
+      return;
+    }
+    _dbMTerm* tail = (_dbMTerm*) master->_mterm_tbl->getPtr(net->_Mterm);
+    if (tail) {
+      _next_mterm = net->_Mterm;
+      tail->_prev_mterm = getOID();
+    }
+  } else {
+    _next_mterm = 0;
+    _prev_mterm = 0;
+    net->_Mterm = getOID();
+  }
+}
+*/
+void _dbMTerm::ConnectSupplyNet(_dbSupplyNet* net, _dbBlock* block)
+{
+  _supply_net = net->getOID();
+  
+  // Update net's MTerm list
+  if (net->_Iterm != 0) {
+    _dbInst* inst = (_dbInst*) block->getOwner();
+    if(inst == nullptr) {
+      return;
+    }
+    _dbITerm* iterm = (_dbITerm*) inst->getOwner();
+    if(iterm == nullptr) {
+      return;
+    }
+    _dbMTerm* mterm = (_dbMTerm*) iterm->getMTerm(); 
+    if(mterm == nullptr) {
+      return;
+    }
+    dbSigType tail = dbSigType(mterm->_flags._sig_type);
+    if (tail != dbSigType::POWER
+        && tail != dbSigType::GROUND) {
+      _next_mterm = net->_Mterm;
+      // The following line is likely incorrect, as 'tail' is an enum, not a pointer.
+      // You may need to update this logic based on your actual data structures.
+      // tail->_prev_mterm = getOID();
+    }
+  }else {
+    _next_mterm = 0;
+    _prev_mterm = 0;
+    net->_Mterm = getOID();
+  }
+}
+
+
+dbSupplyNet* dbMTerm::getSupplyNet() const
+{
+  _dbMTerm* obj = (_dbMTerm*) this;
+  if (obj->_supply_net == 0) {
+    return nullptr;
+  }
+  _dbITerm* master = (_dbITerm*) obj->getOwner();
+  if (!master) {
+    return nullptr;
+  }
+
+  _dbInst* inst = (_dbInst*) master->getOwner();
+  if (!inst) {
+    return nullptr;
+  }
+  
+  /*_dbLib* lib = (_dbLib*) inst->getOwner();
+  if (!lib) {
+    return nullptr;
+  }*/
+  
+  _dbDatabase* db = (_dbDatabase*) inst->getOwner();
+  if (!db) {
+    return nullptr;
+  }
+  
+  _dbChip* chip = (_dbChip*) db->_chip_tbl->getPtr(db->_chip);
+  if (!chip) {
+    return nullptr;
+  }
+  
+  _dbBlock* block = (_dbBlock*) chip->_block_tbl->getPtr(chip->_top);
+  if (!block) {
+    return nullptr;
+  }
+  
+  return (dbSupplyNet*) block->_supplynet_tbl->getPtr(obj->_supply_net);
+}
 }  // namespace odb

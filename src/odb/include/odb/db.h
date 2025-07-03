@@ -5908,6 +5908,11 @@ class dbMTerm : public dbObject
   /// Translate a database-id back to a pointer.
   ///
   static dbMTerm* getMTerm(dbMaster* master, uint oid);
+
+  //custom p2f
+  void connect(dbSupplyNet* supply_net);
+  dbSupplyNet* getSupplyNet() const;
+  //custom p2f
 };
 
 ///////////////////////////////////////////////////////////////////////////////
