@@ -1,77 +1,76 @@
 pipeline {
-    agentany
+    agent any
 
     environment {
         GIT_SSH_COMMAND = 'ssh -i ~/.ssh/id_ed25519_jenkins -o StrictHostKeyChecking=no'
     }
 
     stages {
-        stage('Clone Repo & Submodules') {
+        stage('Build Docker Image') {
             steps {
-                sh '''
-                    apt-get update
-                    apt-get install -y git openssh-client build-essential
+                script {
+                    // Create Dockerfile dynamically or use a file in repo
+                    writeFile file: 'Dockerfile', text: '''
+                    FROM ubuntu:22.04
 
-                    eval "$(ssh-agent -s)"
-                    ssh-add ~/.ssh/id_ed25519_jenkins
+                    RUN apt-get update && apt-get install -y \\
+                        git \\
+                        openssh-client \\
+                        build-essential \\
+                        cmake \\
+                        ninja-build \\
+                        ctest \\
+                        python3 \\
+                        sudo \\
+                        wget \\
+                        curl \\
+                        && rm -rf /var/lib/apt/lists/*
 
-                    if [ -d "source" ]; then
-                        echo "Source directory exists. Fetching latest changes..."
-                        cd source
-                        git fetch origin
-                        git reset --hard origin/test
-                        git submodule sync --recursive
-                        git submodule update --init --recursive
-                    else
-                        echo "Cloning repository..."
-                        git clone --recurse-submodules git@github.com:vishnu-p2f/OpenROAD.git source
-                    fi
-                '''
+                    # Optional: add more setup here
+                    '''
+                    // Build the image
+                    docker.build('openroad-build-env:latest')
+                }
             }
         }
 
-        stage('Install Dependencies') {
+        stage('Run Build & Test inside Docker') {
             steps {
-                sh '''
-                    cd source
-                    ./etc/DependencyInstaller.sh -base
-                    ./etc/DependencyInstaller.sh -common -local
-                '''
-            }
-        }
+                script {
+                    docker.image('openroad-build-env:latest').inside('--user root') {
+                        sh '''
+                            eval "$(ssh-agent -s)"
+                            ssh-add ~/.ssh/id_ed25519_jenkins
 
-        stage('Build OpenROAD') {
-            steps {
-                sh '''
-                    cd source
-                    ./etc/Build.sh -cmake="-DCMAKE_BUILD_TYPE=RELEASE"
-                '''
-            }
-        }
+                            if [ -d "source" ]; then
+                                cd source
+                                git fetch origin
+                                git reset --hard origin/test
+                                git submodule sync --recursive
+                                git submodule update --init --recursive
+                            else
+                                git clone --recurse-submodules git@github.com:vishnu-p2f/OpenROAD.git source
+                            fi
 
-        stage('Run Tests') {
-            steps {
-                sh '''
-                    cd source/build
-                    ctest --output-on-failure | tee test_output.log
-                '''
+                            cd source
+                            ./etc/DependencyInstaller.sh -base
+                            ./etc/DependencyInstaller.sh -common -local
+
+                            ./etc/Build.sh -cmake="-DCMAKE_BUILD_TYPE=RELEASE"
+
+                            cd build
+                            ctest --output-on-failure | tee test_output.log
+                        '''
+                    }
+                }
             }
         }
     }
 
     post {
         always {
-            script {
-                def logPath = 'source/build'
-                def testLog = "${logPath}/test_output.log"
-                def buildLog = "${logPath}/openroad_build.log"
-                if (fileExists(testLog)) {
-                    archiveArtifacts artifacts: "${testLog}", fingerprint: true
-                }
-                if (fileExists(buildLog)) {
-                    archiveArtifacts artifacts: "${buildLog}", fingerprint: true
-                }
-            }
+            archiveArtifacts artifacts: 'source/build/test_output.log', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'source/build/openroad_build.log', allowEmptyArchive: true
         }
     }
 }
