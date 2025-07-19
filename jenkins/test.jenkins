@@ -12,29 +12,6 @@ pipeline {
                 deleteDir()
             }
         }
-        stage('Build Docker Image') {
-            steps {
-                script {
-                    writeFile file: 'Dockerfile', text: '''
-FROM ubuntu:22.04
-
-RUN apt-get update && apt-get install -y \\
-    git \\
-    openssh-client \\
-    build-essential \\
-    cmake \\
-    ninja-build \\
-    ctest \\
-    python3 \\
-    sudo \\
-    wget \\
-    curl \\
-    && rm -rf /var/lib/apt/lists/*
-                    '''
-                    docker.build('openroad-build-env:latest')
-                }
-            }
-        }
 
         stage('Run Build & Test inside Docker') {
             steps {
