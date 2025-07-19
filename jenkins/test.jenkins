@@ -4,8 +4,14 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git 'https://github.com/vishnu-p2f/OpenROAD.git'
-                sh 'git submodule update --init --recursive'
+                // Clone main repo using SSH
+                git 'git@github.com:vishnu-p2f/OpenROAD.git'
+
+                // Sync and update submodules using SSH URLs from .gitmodules
+                sh '''
+                    git submodule sync --recursive
+                    git submodule update --init --recursive
+                '''
             }
         }
 
