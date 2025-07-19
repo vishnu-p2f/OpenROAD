@@ -13,7 +13,7 @@ pipeline {
             }
         }
 
-        stage('Run Build & Test inside Docker') {
+        stage('Build & Test inside Docker') {
             steps {
                 script {
                     docker.image('openroad-build-env:latest').inside('--user root') {
@@ -22,7 +22,7 @@ pipeline {
                             ssh-add ~/.ssh/id_ed25519_jenkins || echo "SSH key add failed"
 
                             if [ -d "source" ]; then
-                                echo "Source exists, cleaning up..."
+                                echo "Cleaning existing source directory..."
                                 rm -rf source
                             fi
 
@@ -37,11 +37,11 @@ pipeline {
                             ./etc/DependencyInstaller.sh -common -local
 
                             echo "Building OpenROAD..."
-                            ./etc/Build.sh -cmake="-DCMAKE_BUILD_TYPE=RELEASE"
+                            ./etc/Build.sh -cmake="-DCMAKE_BUILD_TYPE=RELEASE" | tee ../openroad_build.log
 
                             echo "Running tests..."
                             cd build
-                            ctest --output-on-failure | tee test_output.log
+                            ctest --output-on-failure | tee ../test_output.log
                         '''
                     }
                 }
@@ -51,8 +51,8 @@ pipeline {
 
     post {
         always {
-            archiveArtifacts artifacts: 'source/build/test_output.log', allowEmptyArchive: true
-            archiveArtifacts artifacts: 'source/build/openroad_build.log', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'openroad_build.log', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'test_output.log', allowEmptyArchive: true
         }
     }
 }
