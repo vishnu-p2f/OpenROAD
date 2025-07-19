@@ -1,5 +1,10 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'ubuntu:22.04'
+            args '--user root'
+        }
+    }
 
     environment {
         GIT_SSH_COMMAND = 'ssh -i ~/.ssh/id_ed25519_jenkins -o StrictHostKeyChecking=no'
@@ -9,8 +14,12 @@ pipeline {
         stage('Clone Repo & Submodules') {
             steps {
                 sh '''
+                    apt-get update
+                    apt-get install -y git openssh-client build-essential
+
                     eval "$(ssh-agent -s)"
                     ssh-add ~/.ssh/id_ed25519_jenkins
+
                     if [ -d "source" ]; then
                         echo "Source directory exists. Fetching latest changes..."
                         cd source
