@@ -11,12 +11,17 @@ pipeline {
                 sh '''
                     eval "$(ssh-agent -s)"
                     ssh-add ~/.ssh/id_ed25519_jenkins
-
-                    # Clone with SSH
-                    git clone --recurse-submodules git@github.com:vishnu-p2f/OpenROAD.git source
-                    cd source
-                    git submodule sync --recursive
-                    git submodule update --init --recursive
+                    if [ -d "source" ]; then
+                        echo "Source directory exists. Fetching latest changes..."
+                        cd source
+                        git fetch origin
+                        git reset --hard origin/test
+                        git submodule sync --recursive
+                        git submodule update --init --recursive
+                    else
+                        echo "Cloning repository..."
+                        git clone --recurse-submodules git@github.com:vishnu-p2f/OpenROAD.git source
+                    fi
                 '''
             }
         }
