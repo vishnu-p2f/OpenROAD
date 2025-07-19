@@ -3,32 +3,34 @@ pipeline {
 
     environment {
         GIT_SSH_COMMAND = 'ssh -i ~/.ssh/id_ed25519_jenkins -o StrictHostKeyChecking=no'
+        BRANCH_NAME = 'test'
     }
 
     stages {
+        stage('Clean workspace') {
+            steps {
+                deleteDir()
+            }
+        }
         stage('Build Docker Image') {
             steps {
                 script {
-                    // Create Dockerfile dynamically or use a file in repo
                     writeFile file: 'Dockerfile', text: '''
-                    FROM ubuntu:22.04
+FROM ubuntu:22.04
 
-                    RUN apt-get update && apt-get install -y \\
-                        git \\
-                        openssh-client \\
-                        build-essential \\
-                        cmake \\
-                        ninja-build \\
-                        ctest \\
-                        python3 \\
-                        sudo \\
-                        wget \\
-                        curl \\
-                        && rm -rf /var/lib/apt/lists/*
-
-                    # Optional: add more setup here
+RUN apt-get update && apt-get install -y \\
+    git \\
+    openssh-client \\
+    build-essential \\
+    cmake \\
+    ninja-build \\
+    ctest \\
+    python3 \\
+    sudo \\
+    wget \\
+    curl \\
+    && rm -rf /var/lib/apt/lists/*
                     '''
-                    // Build the image
                     docker.build('openroad-build-env:latest')
                 }
             }
@@ -40,24 +42,27 @@ pipeline {
                     docker.image('openroad-build-env:latest').inside('--user root') {
                         sh '''
                             eval "$(ssh-agent -s)"
-                            ssh-add ~/.ssh/id_ed25519_jenkins
+                            ssh-add ~/.ssh/id_ed25519_jenkins || echo "SSH key add failed"
 
                             if [ -d "source" ]; then
-                                cd source
-                                git fetch origin
-                                git reset --hard origin/test
-                                git submodule sync --recursive
-                                git submodule update --init --recursive
-                            else
-                                git clone --recurse-submodules git@github.com:vishnu-p2f/OpenROAD.git source
+                                echo "Source exists, cleaning up..."
+                                rm -rf source
                             fi
 
+                            echo "Cloning repo with submodules..."
+                            git clone --recurse-submodules git@github.com:vishnu-p2f/OpenROAD.git source
+
                             cd source
+                            git checkout ${BRANCH_NAME}
+
+                            echo "Running Dependency Installer scripts..."
                             ./etc/DependencyInstaller.sh -base
                             ./etc/DependencyInstaller.sh -common -local
 
+                            echo "Building OpenROAD..."
                             ./etc/Build.sh -cmake="-DCMAKE_BUILD_TYPE=RELEASE"
 
+                            echo "Running tests..."
                             cd build
                             ctest --output-on-failure | tee test_output.log
                         '''
