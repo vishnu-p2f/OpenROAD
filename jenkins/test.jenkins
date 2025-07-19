@@ -1,42 +1,49 @@
 pipeline {
     agent any
 
-    stages {
-        stage('Checkout') {
-            steps {
-                // Clone main repo using SSH
-                git 'git@github.com:vishnu-p2f/OpenROAD.git'
+    environment {
+        GIT_SSH_COMMAND = 'ssh -i ~/.ssh/id_ed25519_jenkins -o StrictHostKeyChecking=no'
+    }
 
-                // Sync and update submodules using SSH URLs from .gitmodules
+    stages {
+        stage('Clone Repo & Submodules') {
+            steps {
                 sh '''
+                    eval "$(ssh-agent -s)"
+                    ssh-add ~/.ssh/id_ed25519_jenkins
+
+                    # Clone with SSH
+                    git clone --recurse-submodules git@github.com:vishnu-p2f/OpenROAD.git source
+                    cd source
                     git submodule sync --recursive
                     git submodule update --init --recursive
                 '''
             }
         }
 
-        stage('Build') {
-            when {
-                branch 'test'
-            }
+        stage('Install Dependencies') {
             steps {
                 sh '''
-                    ./etc/DependencyInstaller.sh
-                    mkdir -p build
-                    cd build
-                    cmake ..
-                    make -j$(nproc)
+                    cd source
+                    sudo ./etc/DependencyInstaller.sh -base
+                    ./etc/DependencyInstaller.sh -common -local
                 '''
             }
         }
 
-        stage('Run Tests & Save Log') {
-            when {
-                branch 'test'
-            }
+        stage('Build OpenROAD') {
             steps {
                 sh '''
-                    cd build
+                    cd source
+                    ./etc/Build.sh -cmake="-DCMAKE_BUILD_TYPE=RELEASE"
+                '''
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                sh '''
+                    cd source/build
                     ctest --output-on-failure | tee test_output.log
                 '''
             }
@@ -46,10 +53,14 @@ pipeline {
     post {
         always {
             script {
-                if (fileExists('build/test_output.log')) {
-                    archiveArtifacts artifacts: 'build/test_output.log', fingerprint: true
-                } else {
-                    echo "No test_output.log found, skipping archive."
+                def logPath = 'source/build'
+                def testLog = "${logPath}/test_output.log"
+                def buildLog = "${logPath}/openroad_build.log"
+                if (fileExists(testLog)) {
+                    archiveArtifacts artifacts: "${testLog}", fingerprint: true
+                }
+                if (fileExists(buildLog)) {
+                    archiveArtifacts artifacts: "${buildLog}", fingerprint: true
                 }
             }
         }
