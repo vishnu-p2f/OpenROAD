@@ -13,52 +13,40 @@ pipeline {
             }
         }
 
-        stage('Build & Test inside Docker') {
+        stage('Clone & Build') {
             steps {
-                script {
-                    docker.image('openroad-build-env:latest').inside('--user root') {
-                        sh '''
-                            set -e
-                            mkdir -p ~/.ssh
-                            ssh-keyscan github.com >> ~/.ssh/known_hosts
+                sh '''
+                    mkdir -p ~/.ssh
+                    ssh-keyscan github.com >> ~/.ssh/known_hosts
+                    eval "$(ssh-agent -s)"
+                    ssh-add ~/.ssh/id_ed25519_jenkins || echo "SSH key add failed"
 
-                            eval "$(ssh-agent -s)"
-                            ssh-add ~/.ssh/id_ed25519_jenkins || echo "SSH key add failed"
+                    echo "Cloning repository..."
+                    rm -rf source
+                    git clone --recurse-submodules git@github.com:vishnu-p2f/OpenROAD.git source
 
-                            echo "Cloning repository..."
-                            rm -rf source
-                            git clone --recurse-submodules git@github.com:vishnu-p2f/OpenROAD.git source
+                    cd source
+                    git checkout "$BRANCH_NAME"
 
-                            cd source
-                            git checkout "$BRANCH_NAME"
+                    echo "Installing dependencies..."
+                    ./etc/DependencyInstaller.sh -base
+                    ./etc/DependencyInstaller.sh -common -local
 
-                            echo "Installing dependencies..."
-                            ./etc/DependencyInstaller.sh -base
-                            ./etc/DependencyInstaller.sh -common -local
+                    echo "Building OpenROAD..."
+                    ./etc/Build.sh -cmake="-DCMAKE_BUILD_TYPE=RELEASE" | tee ../openroad_build.log
 
-                            echo "Building OpenROAD..."
-                            ./etc/Build.sh -cmake="-DCMAKE_BUILD_TYPE=RELEASE" | tee ../openroad_build.log
-
-                            echo "Running tests..."
-                            cd build
-                            ctest --output-on-failure | tee ../../test_output.log
-                        '''
-                    }
-                }
+                    echo "Running tests..."
+                    cd build
+                    ctest --output-on-failure | tee ../../test_output.log
+                '''
             }
         }
     }
 
     post {
         always {
-            script {
-                if (fileExists('openroad_build.log')) {
-                    archiveArtifacts artifacts: 'openroad_build.log', allowEmptyArchive: true
-                }
-                if (fileExists('test_output.log')) {
-                    archiveArtifacts artifacts: 'test_output.log', allowEmptyArchive: true
-                }
-            }
+            archiveArtifacts artifacts: 'openroad_build.log', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'test_output.log', allowEmptyArchive: true
         }
     }
 }
