@@ -29,7 +29,7 @@ pipeline {
                     git clone --recurse-submodules git@github.com:vishnu-p2f/OpenROAD.git source
 
                     cd source
-                    git checkout "$BRANCH_NAME"
+                    git checkout -- "$BRANCH_NAME"
                 '''
             }
         }
