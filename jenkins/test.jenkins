@@ -1,4 +1,8 @@
 pipeline {
+    options {
+        timeout(time: 30, unit: 'MINUTES')
+    }
+
     agent any
 
     environment {
@@ -13,7 +17,7 @@ pipeline {
             }
         }
 
-        stage('Clone & Build') {
+        stage('Clone') {
             steps {
                 sh '''
                     mkdir -p ~/.ssh
@@ -22,25 +26,45 @@ pipeline {
                     ssh-add ~/.ssh/id_ed25519_jenkins || echo "SSH key add failed"
 
                     echo "Cloning repository..."
-                    rm -rf source
                     git clone --recurse-submodules git@github.com:vishnu-p2f/OpenROAD.git source
 
                     cd source
-                    git checkout -- "$BRANCH_NAME"
+                    git checkout "$BRANCH_NAME"
+                '''
+            }
+        }
 
+        stage('Install Dependencies') {
+            steps {
+                sh '''
                     echo "Installing dependencies..."
+                    cd source
                     if [ "$(id -u)" -eq 0 ]; then
-                      ./etc/DependencyInstaller.sh -base
-                      ./etc/DependencyInstaller.sh -common
+                        ./etc/DependencyInstaller.sh -base
+                        ./etc/DependencyInstaller.sh -common
                     else
-                      ./etc/DependencyInstaller.sh -base
-                      ./etc/DependencyInstaller.sh -common -local
+                        ./etc/DependencyInstaller.sh -base
+                        ./etc/DependencyInstaller.sh -common -local
                     fi
-                    echo "Building OpenROAD..."
-                    ./etc/Build.sh -cmake="-DCMAKE_BUILD_TYPE=RELEASE" | tee ../openroad_build.log
+                '''
+            }
+        }
 
+        stage('Build') {
+            steps {
+                sh '''
+                    echo "Building OpenROAD..."
+                    cd source
+                    ./etc/Build.sh -cmake="-DCMAKE_BUILD_TYPE=RELEASE" | tee ../openroad_build.log
+                '''
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh '''
                     echo "Running tests..."
-                    cd build
+                    cd source/build
                     ctest --output-on-failure | tee ../../test_output.log
                 '''
             }
@@ -49,6 +73,7 @@ pipeline {
 
     post {
         always {
+            echo 'Archiving build and test logs...'
             archiveArtifacts artifacts: 'openroad_build.log', allowEmptyArchive: true
             archiveArtifacts artifacts: 'test_output.log', allowEmptyArchive: true
         }
