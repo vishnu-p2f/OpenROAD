@@ -76,7 +76,7 @@ EOF
                     ctest --output-on-failure -T test --no-compress-output -D Experimental | tee ../../test_output.log
 
                     # Copy useful logs if available
-                    find . -name LastTest.log -exec cp {} ../../LastTest.log \; || true
+                    for file in $(find . -name LastTest.log); do cp "$file" ../../LastTest.log; done || true
                 '''
             }
         }
