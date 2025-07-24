@@ -60,13 +60,23 @@ pipeline {
         stage('Test') {
             steps {
                 sh '''
-                    echo "Running tests with verbose output..."
-                    cd source/build
+                    echo "Preparing for CTest..."
+                    cd source
 
-                    # Run tests with detailed logs (no XML)
-                    ctest --output-on-failure | tee ../../test_output.log
+                    # Generate required CTest config file
+                    cat <<EOF > CTestConfig.cmake
+set(CTEST_PROJECT_NAME "OpenROAD")
+set(CTEST_NIGHTLY_START_TIME "00:00:00 UTC")
+EOF
 
+                    cd build
 
+                    echo "Running tests with XML output..."
+                    rm -rf Testing
+                    ctest --output-on-failure -T test --no-compress-output -D Experimental | tee ../../test_output.log
+
+                    # Copy useful logs if available
+                    find . -name LastTest.log -exec cp {} ../../LastTest.log \; || true
                 '''
             }
         }
@@ -79,10 +89,10 @@ pipeline {
             archiveArtifacts artifacts: 'openroad_build.log', allowEmptyArchive: true
             archiveArtifacts artifacts: 'test_output.log', allowEmptyArchive: true
             archiveArtifacts artifacts: 'LastTest.log', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'source/build/Testing/**/*.xml', allowEmptyArchive: true
 
-            // Uncomment the below if you later generate JUnit XML
-            // echo 'Publishing test results...'
-            // junit 'source/build/ctest-results.xml'
+            echo 'Publishing test results (JUnit XML)...'
+            junit 'source/build/Testing/**/*.xml'
         }
     }
 }
