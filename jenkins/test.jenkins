@@ -73,7 +73,7 @@ pipeline {
 
                     echo "Running tests with XML output..."
                     rm -rf Testing
-                    ctest --output-on-failure -T test --no-compress-output -D Experimental | tee ../../test_output.log
+                    ctest --output-on-failure -T test --no-compress-output | tee ../../test_output.log
 
                 '''
             }
