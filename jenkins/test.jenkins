@@ -64,10 +64,9 @@ pipeline {
                     cd source/build
 
                     # Run tests with detailed logs (no XML)
-                    ctest --output-on-failure --verbose | tee ../../test_output.log
+                    ctest --output-on-failure | tee ../../test_output.log
 
-                    # Save LastTest.log for Jenkins archive (if generated)
-                    # find . -name LastTest.log -exec cp {} ../../LastTest.log \; || true
+
                 '''
             }
         }
