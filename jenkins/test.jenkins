@@ -67,7 +67,7 @@ pipeline {
                     ctest --output-on-failure --verbose | tee ../../test_output.log
 
                     # Save LastTest.log for Jenkins archive (if generated)
-                    find . -name LastTest.log -exec cp {} ../../LastTest.log \; || true
+                    # find . -name LastTest.log -exec cp {} ../../LastTest.log \; || true
                 '''
             }
         }
