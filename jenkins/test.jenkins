@@ -60,9 +60,17 @@ pipeline {
         stage('Test') {
             steps {
                 sh '''
-                    echo "Running tests..."
+                    echo "Running tests with XML output for Jenkins..."
                     cd source/build
-                    ctest --output-on-failure | tee ../../test_output.log
+
+                    # Clean previous CTest logs
+                    rm -rf Testing
+
+                    # Run tests and generate XML for Jenkins
+                    ctest --output-on-failure -T test --no-compress-output -D Experimental | tee ../../test_output.log
+
+                    # Optionally copy LastTest.log for easier access
+                    cp Testing/Temporary/LastTest.log ../../LastTest.log || true
                 '''
             }
         }
@@ -71,8 +79,14 @@ pipeline {
     post {
         always {
             echo 'Archiving build and test logs...'
+
             archiveArtifacts artifacts: 'openroad_build.log', allowEmptyArchive: true
             archiveArtifacts artifacts: 'test_output.log', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'LastTest.log', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'source/build/Testing/**/*.xml', allowEmptyArchive: true
+
+            echo 'Publishing JUnit-compatible test results...'
+            junit 'source/build/Testing/**/*.xml'
         }
     }
 }
