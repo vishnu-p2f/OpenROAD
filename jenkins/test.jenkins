@@ -65,9 +65,9 @@ pipeline {
 
                     # Generate required CTest config file
                     cat <<EOF > CTestConfig.cmake
-set(CTEST_PROJECT_NAME "OpenROAD")
-set(CTEST_NIGHTLY_START_TIME "00:00:00 UTC")
-EOF
+                    set(CTEST_PROJECT_NAME "OpenROAD")
+                    set(CTEST_NIGHTLY_START_TIME "00:00:00 UTC")
+                    EOF
 
                     cd build
 
