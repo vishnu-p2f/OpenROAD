@@ -60,34 +60,36 @@ pipeline {
         stage('Test') {
             steps {
                 sh '''
-                            echo "Running tests..."
-                
-                            # Ensure CTest config exists
-                            mkdir -p source
-                            cat <<EOF > source/CTestConfig.cmake
-                set(CTEST_PROJECT_NAME "OpenROAD")
-                set(CTEST_NIGHTLY_START_TIME "00:00:00 UTC")
-                EOF
-                
-                            cd source/build
-                
-                            # Clean previous results if any
-                            rm -rf Testing
-                
-                            # Run ctest with JUnit output
-                            ctest --output-on-failure --output-junit ../../test_results.xml | tee ../../test_output.log
-                        '''
+                    echo "Running tests..."
+                    
+                    # Ensure CTest config exists
+                    mkdir -p source
+                    cat <<EOF > source/CTestConfig.cmake
+set(CTEST_PROJECT_NAME "OpenROAD")
+set(CTEST_NIGHTLY_START_TIME "00:00:00 UTC")
+EOF
+
+                    cd source/build
+
+                    # Clean previous results if any
+                    rm -rf Testing
+
+                    # Run ctest with JUnit output
+                    ctest --output-on-failure --output-junit ../../test_results.xml | tee ../../test_output.log
+                '''
             }
         }
-    }
-    post {
-    always {
-        echo 'Archiving build and test logs...'
-        archiveArtifacts artifacts: 'openroad_build.log', allowEmptyArchive: true
-        archiveArtifacts artifacts: 'test_output.log', allowEmptyArchive: true
-        archiveArtifacts artifacts: 'test_results.xml', allowEmptyArchive: true
+    }  // <-- This was missing!
 
-        echo 'Publishing JUnit test results...'
-        junit testResults: 'test_results.xml', allowEmptyResults: true
+    post {
+        always {
+            echo 'Archiving build and test logs...'
+            archiveArtifacts artifacts: 'openroad_build.log', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'test_output.log', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'test_results.xml', allowEmptyArchive: true
+
+            echo 'Publishing JUnit test results...'
+            junit testResults: 'test_results.xml', allowEmptyResults: true
+        }
     }
 }
