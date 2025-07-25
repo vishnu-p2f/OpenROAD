@@ -26,7 +26,7 @@ pipeline {
                     git clone --recurse-submodules git@github.com:vishnu-p2f/OpenROAD.git source
 
                     cd source
-                    git checkout -- "$BRANCH_NAME"
+                    git checkout "$BRANCH_NAME"
                 '''
             }
         }
@@ -62,7 +62,7 @@ pipeline {
                 sh '''
                     echo "Running tests..."
                     cd source/build
-                    ctest --output-on-failure | tee ../../test_output.log
+                    ctest -T Test --output-on-failure | tee ../../test_output.log
                 '''
             }
         }
@@ -73,6 +73,9 @@ pipeline {
             echo 'Archiving build and test logs...'
             archiveArtifacts artifacts: 'openroad_build.log', allowEmptyArchive: true
             archiveArtifacts artifacts: 'test_output.log', allowEmptyArchive: true
+
+            echo 'Publishing JUnit test results...'
+            junit testResults: 'source/build/Testing/**/*.xml', allowEmptyResults: true
         }
     }
 }
