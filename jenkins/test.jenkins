@@ -61,6 +61,12 @@ pipeline {
             steps {
                 sh '''
                     echo "Running tests..."
+                     # Write the config file at correct path
+            mkdir -p source
+cat <<EOF > source/CTestConfig.cmake
+set(CTEST_PROJECT_NAME "OpenROAD")
+set(CTEST_NIGHTLY_START_TIME "00:00:00 UTC")
+EOF
                     cd source/build
                     ctest -T Test --output-on-failure --output-junit ../../test_results.xml | tee ../../test_output.log
                 '''
