@@ -1,0 +1,67 @@
+pipeline {
+    agent any
+
+    environment {
+        GIT_SSH_COMMAND = 'ssh -i ~/.ssh/id_ed25519_jenkins -o StrictHostKeyChecking=no'
+        BRANCH_NAME = 'test'
+    }
+
+    stages {
+        stage('Clean Workspace') {
+            steps {
+                deleteDir()
+            }
+        }
+
+        stage('Clone and Checkout') {
+            steps {
+                sh '''
+                    mkdir -p ~/.ssh
+                    ssh-keyscan github.com >> ~/.ssh/known_hosts
+                    eval "$(ssh-agent -s)"
+                    ssh-add ~/.ssh/id_ed25519_jenkins || echo "SSH key add failed"
+
+                    echo "Cloning repository..."
+                    git clone --recurse-submodules git@github.com:vishnu-p2f/OpenROAD.git source
+
+                    cd source
+                    git checkout -- "$BRANCH_NAME"
+                '''
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                sh '''
+                    echo "Installing dependencies..."
+                    cd source
+                    if [ "$(id -u)" -eq 0 ]; then
+                        ./etc/DependencyInstaller.sh -base
+                        ./etc/DependencyInstaller.sh -common
+                    else
+                        ./etc/DependencyInstaller.sh -base
+                        ./etc/DependencyInstaller.sh -common -local
+                    fi
+                '''
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh '''
+                    echo "Building OpenROAD..."
+                    cd source
+                    ./etc/Build.sh -cmake="-DCMAKE_BUILD_TYPE=RELEASE" | tee ../openroad_build.log
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Archiving build and source...'
+            archiveArtifacts artifacts: 'source/**', fingerprint: true
+            archiveArtifacts artifacts: 'openroad_build.log', allowEmptyArchive: true
+        }
+    }
+}
