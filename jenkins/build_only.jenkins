@@ -56,11 +56,11 @@ pipeline {
             }
         }
     }
-
+    
     post {
         always {
             echo 'Archiving build and source...'
-            archiveArtifacts artifacts: 'source/**', fingerprint: true
+            archiveArtifacts artifacts: 'source/build/**', fingerprint: true, allowEmptyArchive: true
             archiveArtifacts artifacts: 'openroad_build.log', allowEmptyArchive: true
         }
     }
