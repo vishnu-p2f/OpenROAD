@@ -60,28 +60,34 @@ pipeline {
         stage('Test') {
             steps {
                 sh '''
-                    echo "Running tests..."
-                     # Write the config file at correct path
-            mkdir -p source
-cat <<EOF > source/CTestConfig.cmake
-set(CTEST_PROJECT_NAME "OpenROAD")
-set(CTEST_NIGHTLY_START_TIME "00:00:00 UTC")
-EOF
-                    cd source/build
-                    ctest -T Test --output-on-failure --output-junit ../../test_results.xml | tee ../../test_output.log
-                '''
+                            echo "Running tests..."
+                
+                            # Ensure CTest config exists
+                            mkdir -p source
+                            cat <<EOF > source/CTestConfig.cmake
+                set(CTEST_PROJECT_NAME "OpenROAD")
+                set(CTEST_NIGHTLY_START_TIME "00:00:00 UTC")
+                EOF
+                
+                            cd source/build
+                
+                            # Clean previous results if any
+                            rm -rf Testing
+                
+                            # Run ctest with JUnit output
+                            ctest --output-on-failure --output-junit ../../test_results.xml | tee ../../test_output.log
+                        '''
             }
         }
     }
-
     post {
-        always {
-            echo 'Archiving build and test logs...'
-            archiveArtifacts artifacts: 'openroad_build.log', allowEmptyArchive: true
-            archiveArtifacts artifacts: 'test_output.log', allowEmptyArchive: true
+    always {
+        echo 'Archiving build and test logs...'
+        archiveArtifacts artifacts: 'openroad_build.log', allowEmptyArchive: true
+        archiveArtifacts artifacts: 'test_output.log', allowEmptyArchive: true
+        archiveArtifacts artifacts: 'test_results.xml', allowEmptyArchive: true
 
-            echo 'Publishing JUnit test results...'
-            junit testResults: 'source/build/Testing/**/*.xml', allowEmptyResults: true
-        }
+        echo 'Publishing JUnit test results...'
+        junit testResults: 'test_results.xml', allowEmptyResults: true
     }
 }
